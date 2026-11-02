@@ -58,8 +58,28 @@ class OptionsMap;
 
 namespace Search {
 
-// Forward declarations
-struct Stack;
+// Stack struct keeps track of the information we need to remember from nodes
+// shallower and deeper in the tree during the search. Each search thread has
+// its own array of Stack objects, indexed by the current ply.
+struct Stack {
+    PVMoves*                    pv;
+    PieceToHistory*             continuationHistory;
+    CorrectionHistory<PieceTo>* continuationCorrectionHistory;
+    int                         ply;
+    Move                        currentMove;
+    Move                        excludedMove;
+    Value                       staticEval;
+    int                         statScore;
+    int                         moveCount;
+    bool                        inCheck;
+    bool                        ttPv;
+    bool                        ttHit;
+    bool                        followPV;
+    int                         cutoffCnt;
+    int                         reduction;
+    int                         failHighCount;
+    int                         kingZoneAttackers;
+};
 
 enum class StyleMode : int { Balanced = 0, UltraAggressive = 1 };
 
@@ -272,29 +292,6 @@ struct PVMoves {
         moves[0] = move;
         ++length;
     }
-};
-
-// Stack struct keeps track of the information we need to remember from nodes
-// shallower and deeper in the tree during the search. Each search thread has
-// its own array of Stack objects, indexed by the current ply.
-struct Stack {
-    PVMoves*                    pv;
-    PieceToHistory*             continuationHistory;
-    CorrectionHistory<PieceTo>* continuationCorrectionHistory;
-    int                         ply;
-    Move                        currentMove;
-    Move                        excludedMove;
-    Value                       staticEval;
-    int                         statScore;
-    int                         moveCount;
-    bool                        inCheck;
-    bool                        ttPv;
-    bool                        ttHit;
-    bool                        followPV;
-    int                         cutoffCnt;
-    int                         reduction;
-    int                         failHighCount;
-    int                         kingZoneAttackers;
 };
 
 
