@@ -56,10 +56,25 @@ struct ValueList {
     void clear() { size = 0; }
 };
 
-// Hash combine utility
-inline void hash_combine(std::size_t& h, std::size_t v) {
-    h ^= v + 0x9e3779b97f4a7c15 + (h << 6) + (h >> 2);
-}
+// Dirty piece for incremental updates
+struct DirtyPiece {
+    Piece piece;
+    Square from;
+    Square to;
+};
+
+// Dirty threats for incremental updates
+struct DirtyThreats {
+    Piece attacker;
+    Square from;
+    Square to;
+    Piece target;
+    Square ksq;
+};
+
+// Index list type alias (to be specialized by feature sets)
+template<int MaxActiveDimensions>
+using IndexList = ValueList<IndexType, MaxActiveDimensions>;
 
 // Type aliases for feature sets
 using IndexType = uint32_t;
