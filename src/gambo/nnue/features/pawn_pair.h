@@ -24,9 +24,9 @@
 
 #include <cstdint>
 
-#include "../../misc.h"
-#include "../../types.h"
-#include "../nnue_common.h"
+#include "../../../misc.h"
+#include "../../../types.h"
+#include "../../nnue_common.h"
 
 namespace Gambo {
 class Position;
