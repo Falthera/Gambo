@@ -1,0 +1,185 @@
+/*
+  Gambo, a UCI chess playing engine with an aggressive style.
+  Copyright (C) 2024-2026 The Gambo developers.
+
+  Gambo is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  Gambo is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+// Piece-relative feature system implementation
+
+#include "piece_relative.h"
+
+#include "../../position.h"
+#include "../../bitboard.h"
+#include "../nnue_common.h"
+
+namespace Gambo::NNUE::Features {
+
+IndexType PieceRelative::make_index(CoordType type, Square sq1, Square sq2, Color perspective) {
+    // Index encoding for piece coordination features
+    // Dimensions = 8192
+    // CoordType: 10 types
+    // sq1: 64 squares
+    // sq2: 64 squares (with sq1 <= sq2 for canonical ordering)
+    // perspective: 2 colors
+    // 10 * 64 * 64 / 2 * 2 = 40960, but we use 8192
+    // Simplified: 10 * 64 * 12 = 7680 ≈ 8192
+    
+    // Use canonical ordering: sq1 <= sq2
+    Square s1 = sq1, s2 = sq2;
+    if (s1 > s2) std::swap(s1, s2);
+    
+    // Simple index: type * 819 + s1 * 8 + s2/8
+    // 8192 = 10 * 819.2
+    return static_cast<IndexType>(type) * 819 + s1 * 8 + (s2 >> 3);
+}
+
+void PieceRelative::append_active_indices(Color perspective, const Position& pos, IndexList& active) {
+    const Color us = perspective;
+    const Color them = ~perspective;
+    
+    // 1. Battery Rook (Rook + Queen on same file/rank, clear path)
+    Bitboard our_rooks = pos.pieces(us, ROOK);
+    Bitboard our_queens = pos.pieces(us, QUEEN);
+    Bitboard all_pieces = pos.pieces();
+    
+    while (our_rooks) {
+        Square r = pop_lsb(our_rooks);
+        while (our_queens) {
+            Square q = pop_lsb(our_queens);
+            if (same_file(r, q) || same_rank(r, q)) {
+                Bitboard between = between_bb(r, q);
+                if (!(all_pieces & between)) {
+                    IndexType idx = make_index(COORD_BATTERY_ROOK, r, q, perspective);
+                    if (active.size() < MaxActiveDimensions) active.push_back(idx);
+                }
+            }
+        }
+    }
+    
+    // 2. Battery Bishop (Bishop + Queen on same diagonal, clear path)
+    Bitboard our_bishops = pos.pieces(us, BISHOP);
+    while (our_bishops) {
+        Square b = pop_lsb(our_bishops);
+        while (our_queens) {
+            Square q = pop_lsb(our_queens);
+            if (same_diagonal(b, q)) {
+                Bitboard between = between_bb(b, q);
+                if (!(all_pieces & between)) {
+                    IndexType idx = make_index(COORD_BATTERY_BISHOP, b, q, perspective);
+                    if (active.size() < MaxActiveDimensions) active.push_back(idx);
+                }
+            }
+        }
+    }
+    
+    // 3. Knight Outpost (Knight on protected square, not attackable by enemy pawns)
+    Bitboard our_knights = pos.pieces(us, KNIGHT);
+    Bitboard enemy_pawn_attacks = pos.attacks_by<PAWN>(~perspective);
+    Bitboard our_pawn_attacks = pos.attacks_by<PAWN>(perspective);
+    
+    while (our_knights) {
+        Square n = pop_lsb(our_knights);
+        if (!(enemy_pawn_attacks & square_bb(n)) && (our_pawn_attacks & square_bb(n))) {
+            IndexType idx = make_index(COORD_KNIGHT_OUTPOST, n, n, perspective);
+            if (active.size() < MaxActiveDimensions) active.push_back(idx);
+        }
+    }
+    
+    // 4. Pawn Chain (Pawns protecting each other)
+    Bitboard our_pawns = pos.pieces(us, PAWN);
+    while (our_pawns) {
+        Square p = pop_lsb(our_pawns);
+        Bitboard pawn_attacks = pos.attacks_from(make_piece(perspective, PAWN), p);
+        Bitboard protected_pawns = our_pawns & pawn_attacks;
+        while (protected_pawns) {
+            Square protected = pop_lsb(protected_pawns);
+            IndexType idx = make_index(COORD_PAWN_CHAIN, p, protected, perspective);
+            if (active.size() < MaxActiveDimensions) active.push_back(idx);
+        }
+    }
+    
+    // 5. Rook on Open File
+    Bitboard all_pawns = pos.pieces(PAWN);
+    while (our_rooks) {
+        Square r = pop_lsb(our_rooks);
+        File f = file_of(r);
+        if (!(all_pawns & FileBB[f])) {
+            IndexType idx = make_index(COORD_ROOK_OPEN_FILE, r, r, perspective);
+            if (active.size() < MaxActiveDimensions) active.push_back(idx);
+        }
+    }
+    
+    // 6. Bishop Pair
+    if (popcount(pos.pieces(us, BISHOP)) >= 2) {
+        IndexType idx = make_index(COORD_BISHOP_PAIR, SQ_A1, SQ_A1, perspective);
+        if (active.size() < MaxActiveDimensions) active.push_back(idx);
+    }
+    
+    // 7. Knight Pair
+    if (popcount(pos.pieces(us, KNIGHT)) >= 2) {
+        IndexType idx = make_index(COORD_KNIGHT_PAIR, SQ_A1, SQ_A1, perspective);
+        if (active.size() < MaxActiveDimensions) active.push_back(idx);
+    }
+    
+    // 8. Queen + Knight Coordination (near enemy king)
+    Bitboard enemy_king_zone = attacks_bb<KING>(pos.square<KING>(~perspective)) | square_bb(pos.square<KING>(~perspective));
+    while (our_queens) {
+        Square q = pop_lsb(our_queens);
+        while (our_knights) {
+            Square n = pop_lsb(our_knights);
+            Bitboard q_attacks = pos.attacks_from(make_piece(perspective, QUEEN), q);
+            Bitboard n_attacks = pos.attacks_from(make_piece(perspective, KNIGHT), n);
+            if (popcount(q_attacks & n_attacks & enemy_king_zone) >= 2) {
+                IndexType idx = make_index(COORD_QUEEN_KNIGHT, q, n, perspective);
+                if (active.size() < MaxActiveDimensions) active.push_back(idx);
+            }
+        }
+    }
+    
+    // 9. Connected Rooks
+    Bitboard our_rooks2 = pos.pieces(us, ROOK);
+    while (our_rooks2) {
+        Square r1 = pop_lsb(our_rooks2);
+        Bitboard our_rooks3 = our_rooks2;
+        while (our_rooks3) {
+            Square r2 = pop_lsb(our_rooks3);
+            if ((same_file(r1, r2) || same_rank(r1, r2))) {
+                Bitboard between = between_bb(r1, r2);
+                if (!(all_pieces & between)) {
+                    IndexType idx = make_index(COORD_ROOK_ROOK, r1, r2, perspective);
+                    if (active.size() < MaxActiveDimensions) active.push_back(idx);
+                }
+            }
+        }
+    }
+}
+
+void PieceRelative::append_changed_indices(Color perspective, Square ksq,
+                                           const DiffType& diff, IndexList& removed, IndexList& added) {
+    // Piece coordination features change when pieces move
+    if (diff.type() == DirtyPiece::Moved || diff.type() == DirtyPiece::Captured ||
+        diff.type() == DirtyPiece::Promoted) {
+        // Simplified: signal refresh for any piece move
+        // Full implementation would track specific coordination changes
+    }
+}
+
+bool PieceRelative::requires_refresh(const DiffType& diff, Color perspective) {
+    // Coordination features change on piece moves
+    return diff.type() == DirtyPiece::Moved || diff.type() == DirtyPiece::Captured ||
+           diff.type() == DirtyPiece::Promoted;
+}
+
+}  // namespace Gambo::NNUE::Features
