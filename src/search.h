@@ -111,6 +111,64 @@ inline int attack_pressure(const Position& pos, Color us) {
          - 6 * directDefenders;
 }
 
+// King safety assessment - returns a score indicating how exposed the king is.
+// Higher values = more exposed king = more attacking potential for the opponent.
+inline int king_danger(const Position& pos, Color kingColor) {
+    const Color them = ~kingColor;
+    const Square kingSq = pos.square<KING>(kingColor);
+    const Bitboard kingZone = attacks_bb<KING>(kingSq) | square_bb(kingSq);
+
+    const Bitboard enemyPressure =
+      pos.attacks_by<PAWN>(them) | pos.attacks_by<KNIGHT>(them) | pos.attacks_by<BISHOP>(them)
+      | pos.attacks_by<ROOK>(them) | pos.attacks_by<QUEEN>(them);
+
+    const int zoneAttacks = popcount(enemyPressure & kingZone);
+    const int directAttackers = popcount(pos.attackers_to(kingSq) & pos.pieces(them));
+    const int pawnShield = popcount(pos.pieces(kingColor, PAWN) & attacks_bb<PAWN>(kingSq, them));
+
+    // More danger = fewer defending pawns, more attackers
+    return zoneAttacks * 2 + directAttackers * 3 + (8 - pawnShield) * 2;
+}
+
+// Dynamic attack bias that scales with search depth and fail-high history.
+// Returns a bias value that decreases as depth increases, and increases
+// when the position has a history of failing high (indicating real attacking chances).
+// Only provides significant relaxation when pieces are actively attacking the enemy king zone.
+// Also considers king safety - if opponent king is in danger, increase bias.
+inline int dynamic_attack_bias(const Position& pos, Color us, const Stack* ss, Depth depth) {
+    if (!ultra_aggressive())
+        return 0;
+
+    const int baseBias = attack_pressure(pos, us);
+    if (baseBias <= 0)
+        return 0;
+
+    // Scale down relaxation as depth increases
+    // At depth 4: ~100% of bias, at depth 12: ~30%, at depth 20: ~15%
+    const int depthFactor = std::max(15, 100 - depth * 4);
+    int scaledBias = baseBias * depthFactor / 100;
+
+    // Boost bias if we have fail-high history at this node
+    if (ss && ss->failHighCount > 0) {
+        const int failHighBoost = std::min(ss->failHighCount * 8, 32);
+        scaledBias += failHighBoost;
+    }
+
+    // Boost bias if moving piece is entering enemy king zone
+    if (ss && ss->kingZoneAttackers > 0) {
+        scaledBias += ss->kingZoneAttackers * 5;
+    }
+
+    // Boost bias if opponent king is in danger (king safety assessment)
+    const int enemyKingDanger = king_danger(pos, ~us);
+    if (enemyKingDanger > 8) {
+        scaledBias += std::min(enemyKingDanger - 8, 16);
+    }
+
+    // Cap the bias to prevent over-pruning relaxation
+    return std::min(scaledBias, 64);
+}
+
 inline int tactical_volatility(const Position& pos, Color us) {
     if (!ultra_aggressive())
         return 0;
@@ -119,6 +177,57 @@ inline int tactical_volatility(const Position& pos, Color us) {
     const int material  = int(pos.non_pawn_material(us) + pos.non_pawn_material(~us));
     const int imbalance = int(pos.non_pawn_material(us) - pos.non_pawn_material(~us));
     return std::max(0, attack / 4 + material / 1800 - (imbalance >= 0 ? imbalance : -imbalance) / 220);
+}
+
+// Compensation detection for sacrifices.
+// Returns a score representing the attacking compensation for material sacrificed.
+// Positive values indicate compensation (initiative, king safety, piece activity).
+// This is used to distinguish sound sacrifices from unsound ones.
+inline int sacrifice_compensation(const Position& pos, Color us, int materialSacrificed) {
+    if (!ultra_aggressive())
+        return 0;
+
+    const Color them = ~us;
+    const Square theirKing = pos.square<KING>(them);
+    const Square ourKing = pos.square<KING>(us);
+
+    // King safety compensation - enemy king exposure
+    const Bitboard enemyKingZone = attacks_bb<KING>(theirKing) | square_bb(theirKing);
+    const Bitboard ourPressure =
+      pos.attacks_by<PAWN>(us) | pos.attacks_by<KNIGHT>(us) | pos.attacks_by<BISHOP>(us)
+      | pos.attacks_by<ROOK>(us) | pos.attacks_by<QUEEN>(us);
+    const int kingZonePressure = popcount(ourPressure & enemyKingZone);
+
+    // Direct attackers on enemy king
+    const int directAttackers = popcount(pos.attackers_to(theirKing) & pos.pieces(us));
+
+    // Piece activity compensation - our pieces are active
+    const int ourMinorActivity = popcount(pos.pieces(us, KNIGHT, BISHOP) & ~pos.pieces(us, PAWN));
+    const int theirMinorActivity = popcount(pos.pieces(them, KNIGHT, BISHOP) & ~pos.pieces(them, PAWN));
+    const int activityAdvantage = ourMinorActivity - theirMinorActivity;
+
+    // Initiative - we have checks or forcing moves
+    int checkingMoves = 0;
+    for (PieceType pt : {PAWN, KNIGHT, BISHOP, ROOK, QUEEN})
+        checkingMoves += popcount(pos.check_squares(pt) & pos.pieces(us, pt));
+
+    // Development lead in early/middlegame (simplified: count developed minor pieces)
+    int developmentLead = 0;
+    const Bitboard ourMinors = pos.pieces(us, KNIGHT, BISHOP);
+    const Bitboard homeSquares = (us == WHITE) ? (Rank1BB | Rank2BB) : (Rank7BB | Rank8BB);
+    developmentLead = popcount(ourMinors & ~homeSquares);
+
+    // Compensation formula: king safety is most important
+    int compensation = kingZonePressure * 15
+                     + directAttackers * 25
+                     + activityAdvantage * 8
+                     + checkingMoves * 12
+                     + developmentLead * 3;
+
+    // Cap compensation to avoid overestimating
+    // For positional sacrifices (materialSacrificed == 0), use a fixed cap
+    int cap = materialSacrificed > 0 ? materialSacrificed * 3 : 80;
+    return std::min(compensation, cap);
 }
 
 struct PVMoves {
@@ -181,6 +290,8 @@ struct Stack {
     bool                        followPV;
     int                         cutoffCnt;
     int                         reduction;
+    int                         failHighCount;
+    int                         kingZoneAttackers;
 };
 
 

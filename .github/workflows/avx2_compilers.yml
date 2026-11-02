@@ -81,4 +81,4 @@ jobs:
 
       - name: Smoke test
         working-directory: src
-        run: ./pral333 bench 16 1 6
+        run: ./gambi bench 16 1 6

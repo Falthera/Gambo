@@ -1,4 +1,4 @@
-# This workflow will play games with a debug enabled PRAL333 build using the PR
+# This workflow will play games with a debug enabled Gambo build using the PR
 
 name: Games
 on:
@@ -8,15 +8,15 @@ jobs:
     name: Games
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout PRAL333 repo 
+      - name: Checkout Gambo repo 
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          path: PRAL333
+          path: Gambo
           persist-credentials: false
 
-      - name: build debug enabled version of PRAL333
-        working-directory: PRAL333/src
+      - name: build debug enabled version of Gambo
+        working-directory: Gambo/src
         run: make -j build debug=yes
 
       - name: Checkout fastchess repo
@@ -35,8 +35,8 @@ jobs:
         working-directory: fastchess
         run: |
           ./fastchess -rounds 4 -games 2 -repeat -concurrency 4 -openings file=app/tests/data/openings.epd format=epd order=random -srand $RANDOM\
-               -engine name=pral1 cmd=/home/runner/work/PRAL333/PRAL333/PRAL333/src/pral333\
-               -engine name=pral2 cmd=/home/runner/work/PRAL333/PRAL333/PRAL333/src/pral333\
+               -engine name=gambo1 cmd=/home/runner/work/Gambo/Gambo/Gambo/src/gambi\
+               -engine name=gambo2 cmd=/home/runner/work/Gambo/Gambo/Gambo/src/gambi\
                -ratinginterval 1 -report penta=true -each proto=uci tc=4+0.04 -log file=fast.log | tee fast.out
           cat fast.log
           ! grep "Assertion" fast.log > /dev/null

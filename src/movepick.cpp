@@ -224,34 +224,59 @@ ExtMove* MovePicker::score(const MoveList<Type>& ml) {
         const PieceType pt            = type_of(pc);
         const Piece     capturedPiece = pos.piece_on(to);
 
-        if constexpr (Type == CAPTURES)
-        {
-            m.value = (*captureHistory)[pc][to][type_of(capturedPiece)]
-                    + 7 * int(PieceValue[capturedPiece]);
-
-            if (Search::ultra_aggressive())
-                m.value += ((enemyRing & to) ? 1 : 0) * 2048;
-        }
-
-        else if constexpr (Type == QUIETS)
-        {
-            // histories
-            m.value = 2 * (*mainHistory)[us][m.raw()];
-            m.value += 2 * sharedHistory->pawn_entry(pos)[pc][to];
-            m.value += (*continuationHistory[0])[pc][to];
-            m.value += (*continuationHistory[1])[pc][to];
-            m.value += (*continuationHistory[2])[pc][to];
-            m.value += (*continuationHistory[3])[pc][to];
-            m.value += (*continuationHistory[5])[pc][to];
-
-            // bonus for checks
-            m.value += ((pos.check_squares(pt) & to) && pos.see_ge(m, -75)) * 16384;
-
-            if (Search::ultra_aggressive())
+if constexpr (Type == CAPTURES)
             {
-                const int ringBonus = (enemyRing & to) ? 1 : 0;
-                m.value += ringBonus * (1200 + 120 * (pt != PAWN));
+                m.value = (*captureHistory)[pc][to][type_of(capturedPiece)]
+                        + 7 * int(PieceValue[capturedPiece]);
+
+                if (Search::ultra_aggressive())
+                {
+                    const int ringBonus = (enemyRing & to) ? 1 : 0;
+                    m.value += ringBonus * 2048;
+
+                    // Bonus for sacrificing material for attack
+                    const int ourMaterial = PieceValue[pc];
+                    const int theirMaterial = PieceValue[capturedPiece];
+                    if (ourMaterial > theirMaterial && ringBonus)
+                    {
+                        // Sacrificing higher material for king-zone capture
+                        m.value += (ourMaterial - theirMaterial) / 4;
+                    }
+                }
             }
+
+            else if constexpr (Type == QUIETS)
+            {
+                // histories
+                m.value = 2 * (*mainHistory)[us][m.raw()];
+                m.value += 2 * sharedHistory->pawn_entry(pos)[pc][to];
+                m.value += (*continuationHistory[0])[pc][to];
+                m.value += (*continuationHistory[1])[pc][to];
+                m.value += (*continuationHistory[2])[pc][to];
+                m.value += (*continuationHistory[3])[pc][to];
+                m.value += (*continuationHistory[5])[pc][to];
+
+                // bonus for checks
+                m.value += ((pos.check_squares(pt) & to) && pos.see_ge(m, -75)) * 16384;
+
+                if (Search::ultra_aggressive())
+                {
+                    const int ringBonus = (enemyRing & to) ? 1 : 0;
+                    m.value += ringBonus * (1200 + 120 * (pt != PAWN));
+
+                    // Bonus for quiet moves that enter enemy king zone
+                    if (ringBonus && pt != KING)
+                    {
+                        // Additional bonus for pieces that can give check or create threats
+                        const Bitboard attacks = pos.attacks_from(pc, to);
+                        if (attacks & enemyRing)
+                            m.value += 600;  // Creates direct attack on king zone
+
+                        // Bonus for knights and bishops entering king zone (typical attacking pieces)
+                        if (pt == KNIGHT || pt == BISHOP)
+                            m.value += 400;
+                    }
+                }
 
             // penalty for moving to a square threatened by a lesser piece
             // or bonus for escaping an attack by a lesser piece.

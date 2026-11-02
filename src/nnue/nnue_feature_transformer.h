@@ -88,7 +88,8 @@ class FeatureTransformer {
 
     // Number of input/output dimensions
     static constexpr IndexType InputDimensions =
-      PSQFeatureSet::Dimensions + ThreatFeatureSet::Dimensions;
+      PSQFeatureSet::Dimensions + ThreatFeatureSet::Dimensions
+      + KingSafetyFeatureSet::Dimensions + PieceCoordFeatureSet::Dimensions;
     static constexpr IndexType OutputDimensions = HalfDimensions;
 
     // Size of forward propagation buffer
@@ -129,7 +130,8 @@ class FeatureTransformer {
 
     // Hash value embedded in the evaluation file
     static constexpr std::uint32_t get_hash_value() {
-        return combine_hash({ThreatFeatureSet::HashValue, PSQFeatureSet::HashValue})
+        return combine_hash({ThreatFeatureSet::HashValue, PSQFeatureSet::HashValue,
+                             KingSafetyFeatureSet::HashValue, PieceCoordFeatureSet::HashValue})
              ^ (OutputDimensions * 2);
     }
 
@@ -138,12 +140,16 @@ class FeatureTransformer {
         permute<16>(weights, PackusEpi16Order);
 
         permute<8>(threatWeights, PackusEpi16Order);
+        permute<8>(kingSafetyWeights, PackusEpi16Order);
+        permute<8>(pieceCoordWeights, PackusEpi16Order);
     }
 
     void unpermute_weights() {
         permute<16>(biases, InversePackusEpi16Order);
         permute<16>(weights, InversePackusEpi16Order);
         permute<8>(threatWeights, InversePackusEpi16Order);
+        permute<8>(kingSafetyWeights, InversePackusEpi16Order);
+        permute<8>(pieceCoordWeights, InversePackusEpi16Order);
     }
 
     // Read network parameters
@@ -152,8 +158,13 @@ class FeatureTransformer {
 
         read_little_endian<ThreatWeightType>(stream, threatWeights.data(),
                                              ThreatFeatureSet::Dimensions * HalfDimensions);
+        read_little_endian<WeightType>(stream, kingSafetyWeights.data(),
+                                             KingSafetyFeatureSet::Dimensions * HalfDimensions);
+        read_little_endian<WeightType>(stream, pieceCoordWeights.data(),
+                                             PieceCoordFeatureSet::Dimensions * HalfDimensions);
         read_leb_128(stream, weights);
         read_leb_128(stream, threatPsqtWeights, psqtWeights);
+        read_leb_128(stream, kingSafetyPsqtWeights, pieceCoordPsqtWeights);
 
         permute_weights();
 
@@ -170,6 +181,10 @@ class FeatureTransformer {
 
         write_little_endian<ThreatWeightType>(stream, copy->threatWeights.data(),
                                               ThreatFeatureSet::Dimensions * HalfDimensions);
+        write_little_endian<WeightType>(stream, copy->kingSafetyWeights.data(),
+                                              KingSafetyFeatureSet::Dimensions * HalfDimensions);
+        write_little_endian<WeightType>(stream, copy->pieceCoordWeights.data(),
+                                              PieceCoordFeatureSet::Dimensions * HalfDimensions);
         write_leb_128<WeightType>(stream, copy->weights);
 
         auto combinedPsqtWeights =
@@ -182,6 +197,14 @@ class FeatureTransformer {
         std::copy(std::begin(copy->psqtWeights),
                   std::begin(copy->psqtWeights) + PSQFeatureSet::Dimensions * PSQTBuckets,
                   combinedPsqtWeights->begin() + ThreatFeatureSet::Dimensions * PSQTBuckets);
+
+        std::copy(std::begin(copy->kingSafetyPsqtWeights),
+                  std::begin(copy->kingSafetyPsqtWeights) + KingSafetyFeatureSet::Dimensions * PSQTBuckets,
+                  combinedPsqtWeights->begin() + ThreatFeatureSet::Dimensions * PSQTBuckets + PSQFeatureSet::Dimensions * PSQTBuckets);
+
+        std::copy(std::begin(copy->pieceCoordPsqtWeights),
+                  std::begin(copy->pieceCoordPsqtWeights) + PieceCoordFeatureSet::Dimensions * PSQTBuckets,
+                  combinedPsqtWeights->begin() + ThreatFeatureSet::Dimensions * PSQTBuckets + PSQFeatureSet::Dimensions * PSQTBuckets + KingSafetyFeatureSet::Dimensions * PSQTBuckets);
 
         write_leb_128<PSQTWeightType>(stream, *combinedPsqtWeights);
 
@@ -197,13 +220,17 @@ class FeatureTransformer {
 
         hash_combine(h, get_raw_data_hash(threatWeights));
         hash_combine(h, get_raw_data_hash(threatPsqtWeights));
+        hash_combine(h, get_raw_data_hash(kingSafetyWeights));
+        hash_combine(h, get_raw_data_hash(kingSafetyPsqtWeights));
+        hash_combine(h, get_raw_data_hash(pieceCoordWeights));
+        hash_combine(h, get_raw_data_hash(pieceCoordPsqtWeights));
 
         hash_combine(h, get_hash_value());
 
         return h;
     }
 
-    // Convert input features
+// Convert input features
     std::int32_t transform(const Position&    pos,
                            AccumulatorStack&  accumulatorStack,
                            AccumulatorCaches& cache,
@@ -212,21 +239,31 @@ class FeatureTransformer {
 
         using namespace SIMD;
         accumulatorStack.evaluate(pos, *this, cache);
-        const auto& accumulatorState       = accumulatorStack.latest<PSQFeatureSet>();
-        const auto& threatAccumulatorState = accumulatorStack.latest<ThreatFeatureSet>();
+        const auto& accumulatorState         = accumulatorStack.latest<PSQFeatureSet>();
+        const auto& threatAccumulatorState   = accumulatorStack.latest<ThreatFeatureSet>();
+        const auto& kingSafetyAccumulatorState = accumulatorStack.latest<KingSafetyFeatureSet>();
+        const auto& pieceCoordAccumulatorState = accumulatorStack.latest<PieceCoordFeatureSet>();
 
         const Color perspectives[2]  = {pos.side_to_move(), ~pos.side_to_move()};
         const auto& psqtAccumulation = accumulatorState.psqtAccumulation;
         auto        psqt =
           (psqtAccumulation[perspectives[0]][bucket] - psqtAccumulation[perspectives[1]][bucket]);
 
-        const auto& threatPsqtAccumulation = threatAccumulatorState.psqtAccumulation;
+        const auto& threatPsqtAccumulation   = threatAccumulatorState.psqtAccumulation;
+        const auto& kingSafetyPsqtAccumulation = kingSafetyAccumulatorState.psqtAccumulation;
+        const auto& pieceCoordPsqtAccumulation = pieceCoordAccumulatorState.psqtAccumulation;
         psqt                               = (psqt + threatPsqtAccumulation[perspectives[0]][bucket]
-                - threatPsqtAccumulation[perspectives[1]][bucket])
-             / 2;
+                - threatPsqtAccumulation[perspectives[1]][bucket]
+                + kingSafetyPsqtAccumulation[perspectives[0]][bucket]
+                - kingSafetyPsqtAccumulation[perspectives[1]][bucket]
+                + pieceCoordPsqtAccumulation[perspectives[0]][bucket]
+                - pieceCoordPsqtAccumulation[perspectives[1]][bucket])
+             / 4;
 
-        const auto& accumulation       = accumulatorState.accumulation;
-        const auto& threatAccumulation = threatAccumulatorState.accumulation;
+        const auto& accumulation         = accumulatorState.accumulation;
+        const auto& threatAccumulation   = threatAccumulatorState.accumulation;
+        const auto& kingSafetyAccumulation = kingSafetyAccumulatorState.accumulation;
+        const auto& pieceCoordAccumulation = pieceCoordAccumulatorState.accumulation;
 
         for (IndexType p = 0; p < 2; ++p)
         {
@@ -246,76 +283,35 @@ class FeatureTransformer {
               reinterpret_cast<const vec_t*>(&(accumulation[perspectives[p]][HalfDimensions / 2]));
             vec_t* out = reinterpret_cast<vec_t*>(output + offset);
 
-            // Per the NNUE architecture, here we want to multiply pairs of
-            // clipped elements and divide the product by 128. To do this,
-            // we can naively perform min/max operation to clip each of the
-            // four int16 vectors, mullo pairs together, then pack them into
-            // one int8 vector. However, there exists a faster way.
-
-            // The idea here is to use the implicit clipping from packus to
-            // save us two vec_max_16 instructions. This clipping works due
-            // to the fact that any int16 integer below zero will be zeroed
-            // on packus.
-
-            // Consider the case where the second element is negative.
-            // If we do standard clipping, that element will be zero, which
-            // means our pairwise product is zero. If we perform packus and
-            // remove the lower-side clip for the second element, then our
-            // product before packus will be negative, and is zeroed on pack.
-            // The two operation produce equivalent results, but the second
-            // one (using packus) saves one max operation per pair.
-
-            // But here we run into a problem: mullo does not preserve the
-            // sign of the multiplication. We can get around this by doing
-            // mulhi, which keeps the sign. But that requires an additional
-            // tweak.
-
-            // mulhi cuts off the last 16 bits of the resulting product,
-            // which is the same as performing a rightward shift of 16 bits.
-            // We can use this to our advantage. Recall that we want to
-            // divide the final product by 128, which is equivalent to a
-            // 7-bit right shift. Intuitively, if we shift the clipped
-            // value left by 9, and perform mulhi, which shifts the product
-            // right by 16 bits, then we will net a right shift of 7 bits.
-            // However, this won't work as intended. Since we clip the
-            // values to have a maximum value of 127, shifting it by 9 bits
-            // might occupy the signed bit, resulting in some positive
-            // values being interpreted as negative after the shift.
-
-            // There is a way, however, to get around this limitation. When
-            // loading the network, scale accumulator weights and biases by
-            // 2. To get the same pairwise multiplication result as before,
-            // we need to divide the product by 128 * 2 * 2 = 512, which
-            // amounts to a right shift of 9 bits. So now we only have to
-            // shift left by 7 bits, perform mulhi (shifts right by 16 bits)
-            // and net a 9 bit right shift. Since we scaled everything by
-            // two, the values are clipped at 127 * 2 = 254, which occupies
-            // 8 bits. Shifting it by 7 bits left will no longer occupy the
-            // signed bit, so we are safe.
-
-            // Note that on NEON processors, we shift left by 6 instead
-            // because the instruction "vqdmulhq_s16" also doubles the
-            // return value after the multiplication, adding an extra shift
-            // to the left by 1, so we compensate by shifting less before
-            // the multiplication.
-
             constexpr int shift =
-    #if defined(USE_SSE2)
+#if defined(USE_SSE2)
               7;
-    #else
+#else
               6;
-    #endif
+#endif
 
             const vec_t* tin0 =
               reinterpret_cast<const vec_t*>(&(threatAccumulation[perspectives[p]][0]));
             const vec_t* tin1 = reinterpret_cast<const vec_t*>(
               &(threatAccumulation[perspectives[p]][HalfDimensions / 2]));
+            const vec_t* kin0 =
+              reinterpret_cast<const vec_t*>(&(kingSafetyAccumulation[perspectives[p]][0]));
+            const vec_t* kin1 = reinterpret_cast<const vec_t*>(
+              &(kingSafetyAccumulation[perspectives[p]][HalfDimensions / 2]));
+            const vec_t* pin0 =
+              reinterpret_cast<const vec_t*>(&(pieceCoordAccumulation[perspectives[p]][0]));
+            const vec_t* pin1 = reinterpret_cast<const vec_t*>(
+              &(pieceCoordAccumulation[perspectives[p]][HalfDimensions / 2]));
             for (IndexType j = 0; j < NumOutputChunks; ++j)
             {
-                const vec_t acc0a = vec_add_16(in0[j * 2 + 0], tin0[j * 2 + 0]);
-                const vec_t acc0b = vec_add_16(in0[j * 2 + 1], tin0[j * 2 + 1]);
-                const vec_t acc1a = vec_add_16(in1[j * 2 + 0], tin1[j * 2 + 0]);
-                const vec_t acc1b = vec_add_16(in1[j * 2 + 1], tin1[j * 2 + 1]);
+                const vec_t acc0a = vec_add_16(vec_add_16(in0[j * 2 + 0], tin0[j * 2 + 0]),
+                                               vec_add_16(kin0[j * 2 + 0], pin0[j * 2 + 0]));
+                const vec_t acc0b = vec_add_16(vec_add_16(in0[j * 2 + 1], tin0[j * 2 + 1]),
+                                               vec_add_16(kin0[j * 2 + 1], pin0[j * 2 + 1]));
+                const vec_t acc1a = vec_add_16(vec_add_16(in1[j * 2 + 0], tin1[j * 2 + 0]),
+                                               vec_add_16(kin1[j * 2 + 0], pin1[j * 2 + 0]));
+                const vec_t acc1b = vec_add_16(vec_add_16(in1[j * 2 + 1], tin1[j * 2 + 1]),
+                                               vec_add_16(kin1[j * 2 + 1], pin1[j * 2 + 1]));
 
                 const vec_t sum0a = vec_slli_16(vec_max_16(vec_min_16(acc0a, One), Zero), shift);
                 const vec_t sum0b = vec_slli_16(vec_max_16(vec_min_16(acc0b, One), Zero), shift);
@@ -339,6 +335,12 @@ class FeatureTransformer {
                 sum0 += threatAccumulation[static_cast<int>(perspectives[p])][j + 0];
                 sum1 +=
                   threatAccumulation[static_cast<int>(perspectives[p])][j + HalfDimensions / 2];
+                sum0 += kingSafetyAccumulation[static_cast<int>(perspectives[p])][j + 0];
+                sum1 +=
+                  kingSafetyAccumulation[static_cast<int>(perspectives[p])][j + HalfDimensions / 2];
+                sum0 += pieceCoordAccumulation[static_cast<int>(perspectives[p])][j + 0];
+                sum1 +=
+                  pieceCoordAccumulation[static_cast<int>(perspectives[p])][j + HalfDimensions / 2];
 
                 sum0 = std::clamp<BiasType>(sum0, 0, 255);
                 sum1 = std::clamp<BiasType>(sum1, 0, 255);
@@ -361,6 +363,14 @@ class FeatureTransformer {
       std::array<PSQTWeightType, PSQFeatureSet::Dimensions * PSQTBuckets> psqtWeights;
     alignas(CacheLineSize)
       std::array<PSQTWeightType, ThreatFeatureSet::Dimensions * PSQTBuckets> threatPsqtWeights;
+    alignas(CacheLineSize)
+      std::array<WeightType, HalfDimensions * KingSafetyFeatureSet::Dimensions> kingSafetyWeights;
+    alignas(CacheLineSize)
+      std::array<WeightType, HalfDimensions * PieceCoordFeatureSet::Dimensions> pieceCoordWeights;
+    alignas(CacheLineSize)
+      std::array<PSQTWeightType, KingSafetyFeatureSet::Dimensions * PSQTBuckets> kingSafetyPsqtWeights;
+    alignas(CacheLineSize)
+      std::array<PSQTWeightType, PieceCoordFeatureSet::Dimensions * PSQTBuckets> pieceCoordPsqtWeights;
 };
 
 }  // namespace Stockfish::Eval::NNUE

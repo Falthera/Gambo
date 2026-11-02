@@ -2,17 +2,17 @@
 # Visit https://bit.ly/cffinit to generate yours today!
 
 cff-version: 1.2.0
-title: PRAL333
+title: Gambo
 message: >-
   Please cite this software using the metadata from this
   file.
 type: software
 authors:
-  - name: The PRAL333 developers (see AUTHORS file)
-repository-code: 'https://github.com/Falthera/Pral333'
-url: 'https://github.com/Falthera/Pral333'
-repository-artifact: 'https://github.com/Falthera/Pral333/releases'
-abstract: PRAL333 is a free and strong UCI chess engine.
+  - name: The Gambo developers (see AUTHORS file)
+repository-code: 'https://github.com/Falthera/Gambo'
+url: 'https://github.com/Falthera/Gambo'
+repository-artifact: 'https://github.com/Falthera/Gambo/releases'
+abstract: Gambo is a free and strong UCI chess engine.
 keywords:
   - chess
   - artificial intelligence (AI)

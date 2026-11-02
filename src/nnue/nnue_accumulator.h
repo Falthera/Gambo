@@ -152,9 +152,11 @@ class AccumulatorStack {
                                      const FeatureTransformer& featureTransformer,
                                      const std::size_t         end) noexcept;
 
-    std::array<AccumulatorState<PSQFeatureSet>, MaxSize>    psq_accumulators;
-    std::array<AccumulatorState<ThreatFeatureSet>, MaxSize> threat_accumulators;
-    std::size_t                                             size = 1;
+    std::array<AccumulatorState<PSQFeatureSet>, MaxSize>          psq_accumulators;
+    std::array<AccumulatorState<ThreatFeatureSet>, MaxSize>       threat_accumulators;
+    std::array<AccumulatorState<KingSafetyFeatureSet>, MaxSize>   king_safety_accumulators;
+    std::array<AccumulatorState<PieceCoordFeatureSet>, MaxSize>   piece_coord_accumulators;
+    std::size_t                                                   size = 1;
 };
 
 }  // namespace Stockfish::Eval::NNUE

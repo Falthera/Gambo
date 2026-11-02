@@ -1,13 +1,13 @@
 /*
-    PRAL333, a UCI chess playing engine derived from Glaurung 2.1
-    Copyright (C) 2004-2026 The PRAL333 developers (see AUTHORS file)
+    Gambo, a UCI chess playing engine derived from Glaurung 2.1
+    Copyright (C) 2004-2026 The Gambo developers (see AUTHORS file)
 
-    PRAL333 is free software: you can redistribute it and/or modify
+    Gambo is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
 
-    PRAL333 is distributed in the hope that it will be useful,
+    Gambo is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
@@ -113,20 +113,20 @@ class Logger {
 }  // namespace
 
 
-// Returns the full name of the current PRAL333 version.
+// Returns the full name of the current Gambo version.
 //
-// For local dev compiles we try to append the commit SHA and
-// commit date from git. If that fails only the local compilation
-// date is set and "nogit" is specified:
-//      PRAL333 dev-YYYYMMDD-SHA
-//      or
-//      PRAL333 dev-YYYYMMDD-nogit
-//
-// For releases (non-dev builds) we only include the version number:
-//      PRAL333 version
-std::string engine_version_info() {
-    std::stringstream ss;
-    ss << "PRAL333 " << version << std::setfill('0');
+ // For local dev compiles we try to append the commit SHA and
+ // commit date from git. If that fails only the local compilation
+ // date is set and "nogit" is specified:
+ //      Gambo dev-YYYYMMDD-SHA
+ //      or
+ //      Gambo dev-YYYYMMDD-nogit
+ //
+ // For releases (non-dev builds) we only include the version number:
+ //      Gambo version
+ std::string engine_version_info() {
+     std::stringstream ss;
+     ss << "Gambo " << version << std::setfill('0');
 
     if constexpr (version == "dev")
     {
@@ -158,7 +158,7 @@ std::string engine_version_info() {
 
 std::string engine_info(bool to_uci) {
     return engine_version_info() + (to_uci ? "\nid author " : " by ")
-         + "the PRAL333 developers (see AUTHORS file)";
+         + "the Gambo developers (see AUTHORS file)";
 }
 
 

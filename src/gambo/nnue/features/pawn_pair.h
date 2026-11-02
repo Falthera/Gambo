@@ -83,6 +83,23 @@ public:
     static bool requires_refresh(const DiffType& diff, Color perspective);
 
 private:
+    // King bucket mapping (same as HalfKAv2_hm)
+    static constexpr IndexType KingBuckets[SQUARE_NB] = {
+        28*32, 29*32, 30*32, 31*32, 31*32, 30*32, 29*32, 28*32,
+        24*32, 25*32, 26*32, 27*32, 27*32, 26*32, 25*32, 24*32,
+        20*32, 21*32, 22*32, 23*32, 23*32, 22*32, 21*32, 20*32,
+        16*32, 17*32, 18*32, 19*32, 19*32, 18*32, 17*32, 16*32,
+        12*32, 13*32, 14*32, 15*32, 15*32, 14*32, 13*32, 12*32,
+        8*32,  9*32,  10*32, 11*32, 11*32, 10*32, 9*32,  8*32,
+        4*32,  5*32,  6*32,  7*32,  7*32,  6*32,  5*32,  4*32,
+        0*32,  1*32,  2*32,  3*32,  3*32,  2*32,  1*32,  0*32,
+    };
+
+    // Orient square according to perspective
+    static inline Square orient(Color perspective, Square s) {
+        return (perspective == WHITE) ? s : Square(int(s) ^ 56);
+    }
+
     // Detect pawn-pair relationship type between two pawns
     static PawnPairType detect_pair_type(Color perspective, const Position& pos,
                                          Square pawn1, Square pawn2);

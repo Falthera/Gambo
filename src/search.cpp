@@ -692,8 +692,10 @@ Value Search::Worker::search(
     ss->inCheck   = pos.checkers();
     priorCapture  = pos.captured_piece();
     Color us      = pos.side_to_move();
-    const int attackBias = std::max(0, Search::attack_pressure(pos, us));
+    const int attackBias = dynamic_attack_bias(pos, us, ss, depth);
     ss->moveCount = 0;
+    ss->failHighCount = 0;
+    ss->kingZoneAttackers = 0;
     bestValue     = -VALUE_INFINITE;
     maxValue      = VALUE_INFINITE;
 
@@ -1121,6 +1123,20 @@ moves_loop:  // When in check, search starts here
                 // SEE based pruning for captures and checks
                 // Avoid pruning sacrifices of our last piece for stalemate
                 int margin = std::max(175 * depth + captHist * 34 / 1024 + attackBias, 0);
+                
+                // Check for sacrifice compensation - don't prune if there's attacking compensation
+                int compensation = 0;
+                if (Search::ultra_aggressive())
+                {
+                    int materialSacrificed = PieceValue[movedPiece] - PieceValue[capturedPiece];
+                    if (materialSacrificed > 0)
+                    {
+                        compensation = Search::sacrifice_compensation(pos, us, materialSacrificed);
+                        // Reduce margin if we have compensation
+                        margin = std::max(0, margin - compensation / 4);
+                    }
+                }
+                
                 if ((alpha >= VALUE_DRAW || pos.non_pawn_material(us) != PieceValue[movedPiece])
                     && !pos.see_ge(move, -margin))
                     continue;
@@ -1158,7 +1174,26 @@ moves_loop:  // When in check, search starts here
                 lmrDepth = std::max(lmrDepth, 0);
 
                 // Prune moves with negative SEE
-                if (!pos.see_ge(move, -25 * lmrDepth * lmrDepth - attackBias))
+                int seeMargin = -25 * lmrDepth * lmrDepth - attackBias;
+                
+                // Check for sacrifice compensation for quiet moves entering king zone
+                if (Search::ultra_aggressive() && !capture && !givesCheck)
+                {
+                    const Square enemyKing = pos.square<KING>(~us);
+                    const Bitboard enemyKingZone = attacks_bb<KING>(enemyKing) | square_bb(enemyKing);
+                    if (enemyKingZone & square_bb(move.to_sq()))
+                    {
+                        // Moving into enemy king zone - check compensation
+                        int compensation = Search::sacrifice_compensation(pos, us, 0);  // 0 = no material sac, just positional
+                        if (compensation > 20)
+                        {
+                            // Reduce SEE margin requirement for moves with compensation
+                            seeMargin = std::max(seeMargin / 2, -100);
+                        }
+                    }
+                }
+                
+                if (!pos.see_ge(move, seeMargin))
                     continue;
             }
         }
@@ -1230,6 +1265,13 @@ moves_loop:  // When in check, search starts here
         uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
 
         // Step 16. Make the move
+        // Calculate king zone attackers for dynamic attack bias
+        // Check if the moving piece is entering the enemy king zone
+        const Square theirKing = pos.square<KING>(~us);
+        const Bitboard kingZone = attacks_bb<KING>(theirKing) | square_bb(theirKing);
+        if (kingZone & square_bb(move.to_sq()))
+            ss->kingZoneAttackers = std::min(ss->kingZoneAttackers + 1, 8);
+
         do_move(pos, move, st, givesCheck, ss);
 
         // Add extension to new depth
@@ -1240,7 +1282,7 @@ moves_loop:  // When in check, search starts here
             r -= 2766 + PvNode * 1017 + (ttData.value > alpha) * 838
                + (ttData.depth >= depth) * (923 + cutNode * 955);
 
-        r += 714;  // Base reduction offset to compensate for other tweaks
+        r += 640;  // Base reduction offset to compensate for other tweaks
         r -= moveCount * 62;
         r -= std::abs(correctionValue) / 26131;
         r -= attackBias * 4;
@@ -1421,6 +1463,8 @@ moves_loop:  // When in check, search starts here
                 {
                     // (*Scaler) Infrequent and small updates scale well
                     ss->cutoffCnt += (extension < 2) || PvNode;
+                    // Track fail-high for dynamic attack bias
+                    ss->failHighCount = std::min(ss->failHighCount + 1, 8);
                     assert(value >= beta);  // Fail high
                     break;
                 }
@@ -1578,7 +1622,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     bestMove    = Move::none();
     ss->inCheck = pos.checkers();
     const Color us = pos.side_to_move();
-    const int   attackBias = std::max(0, Search::attack_pressure(pos, us));
+    const int   attackBias = dynamic_attack_bias(pos, us, ss, 0);
     moveCount   = 0;
 
     // Used to send selDepth info to GUI (selDepth counts from 1, ply from 0)
@@ -2006,8 +2050,45 @@ void SearchManager::check_time(Search::Worker& worker) {
         return;
 
     const int sharpness = Search::tactical_volatility(worker.rootPos, worker.rootPos.side_to_move());
-    const double timeScale = Search::ultra_aggressive() ? 1.0 + std::min(0.35, sharpness / 200.0) : 1.0;
-    const TimePoint sharpMaximum = TimePoint(double(tm.maximum()) * timeScale);
+
+    // Search instability detection: track PV changes and score fluctuations
+    int instability = 0;
+    if (worker.rootDepth >= 3 && worker.rootMoves.size() >= 2)
+    {
+        // Check if best move changed recently
+        int bestMoveChanges = worker.bestMoveChanges.load(std::memory_order_relaxed);
+        if (bestMoveChanges > 0)
+            instability += std::min(bestMoveChanges * 10, 50);
+
+        // Check score difference between best and second-best move
+        Value bestScore = worker.rootMoves[0].score;
+        Value secondScore = worker.rootMoves[1].score;
+        if (bestScore > -VALUE_INFINITE && secondScore > -VALUE_INFINITE)
+        {
+            int scoreDiff = std::abs(bestScore - secondScore);
+            if (scoreDiff < 50)  // Very close scores = instability
+                instability += (50 - scoreDiff) / 5;
+        }
+    }
+
+    const double timeScale = Search::ultra_aggressive()
+                           ? 1.0 + std::min(0.35, sharpness / 200.0)
+                           : 1.0;
+
+    // Endgame dampener: reduce time scaling in simplified positions
+    // Aggression in endgames often leads to over-pushing and losing
+    const int totalMaterial = worker.rootPos.count<ALL_PIECES>();
+    const bool queensTraded = !worker.rootPos.pieces(WHITE, QUEEN) || !worker.rootPos.pieces(BLACK, QUEEN);
+    double endgameScale = 1.0;
+    if (totalMaterial <= 10 || (queensTraded && totalMaterial <= 14))
+    {
+        endgameScale = 0.7 + 0.3 * totalMaterial / 16.0;  // Scale towards 1.0 as material increases
+    }
+
+    // Increase time for unstable positions (need more search to resolve)
+    const double instabilityScale = 1.0 + std::min(0.25, instability / 100.0);
+
+    const TimePoint sharpMaximum = TimePoint(double(tm.maximum()) * timeScale * instabilityScale * endgameScale);
 
     if ((worker.limits.use_time_management() && (elapsed > sharpMaximum || stopOnPonderhit))
         || (worker.limits.movetime && elapsed >= worker.limits.movetime)

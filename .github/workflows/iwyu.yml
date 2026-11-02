@@ -7,13 +7,13 @@ jobs:
     runs-on: ubuntu-22.04
     defaults:
       run:
-        working-directory: PRAL333/src
+        working-directory: Gambo/src
         shell: bash
     steps:
-      - name: Checkout PRAL333
+      - name: Checkout Gambo
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          path: PRAL333
+          path: Gambo
           persist-credentials: false
 
       - name: Checkout include-what-you-use
@@ -46,4 +46,4 @@ jobs:
           make analyze
           COMP=clang
           CXX=include-what-you-use
-          CXXFLAGS="-stdlib=libc++ -Xiwyu --comment_style=long -Xiwyu --mapping='${{ github.workspace }}/PRAL333/.github/ci/libcxx17.imp' -Xiwyu --error"
+          CXXFLAGS="-stdlib=libc++ -Xiwyu --comment_style=long -Xiwyu --mapping='${{ github.workspace }}/Gambo/.github/ci/libcxx17.imp' -Xiwyu --error"

@@ -1,12 +1,12 @@
-# Contributing to PRAL333
+# Contributing to Gambo
 
-Welcome to the PRAL333 project! We are excited that you are interested in
+Welcome to the Gambo project! We are excited that you are interested in
 contributing. This document outlines the guidelines and steps to follow when
-making contributions to PRAL333.
+making contributions to Gambo.
 
 ## Table of Contents
 
-- [Building PRAL333](#building-pral333)
+- [Building Gambo](#building-gambo)
 - [Making Contributions](#making-contributions)
   - [Reporting Issues](#reporting-issues)
   - [Submitting Pull Requests](#submitting-pull-requests)
@@ -14,7 +14,7 @@ making contributions to PRAL333.
 - [Community and Communication](#community-and-communication)
 - [License](#license)
 
-## Building PRAL333
+## Building Gambo
 
 In case you do not have a C++ compiler installed, you can follow the
 instructions from our wiki.
@@ -32,7 +32,7 @@ If you find a bug, please open an issue on the
 like your operating system, build environment, and a detailed description of the
 problem.
 
-_Please note that PRAL333's development is not focused on adding new features.
+_Please note that Gambo's development is not focused on adding new features.
 Thus any issue regarding missing features will potentially be closed without
 further discussion._
 
@@ -51,13 +51,13 @@ further discussion._
 
 _First time contributors should add their name to [AUTHORS](./AUTHORS)._
 
-_PRAL333's development is not focused on adding new features. Thus any pull
+_Gambo's development is not focused on adding new features. Thus any pull
 request introducing new features will potentially be closed without further
 discussion._
 
 ## Code Style
 
-Changes to PRAL333 C++ code should respect our coding style defined by
+Changes to Gambo C++ code should respect our coding style defined by
 [.clang-format](.clang-format). You can format your changes by running
 `make format`. This requires clang-format version 20 to be installed on your system.
 
@@ -73,24 +73,24 @@ git config blame.ignoreRevsFile .git-blame-ignore-revs
 
 ## Community and Communication
 
-- Join the [PRAL333 discord][discord-link] to discuss ideas, issues, and
+- Join the [Gambo discord][discord-link] to discuss ideas, issues, and
   development.
-- Participate in the [PRAL333 GitHub discussions][discussions-link] for
+- Participate in the [Gambo GitHub discussions][discussions-link] for
   broader conversations.
 
 ## License
 
-By contributing to PRAL333, you agree that your contributions will be licensed
+By contributing to Gambo, you agree that your contributions will be licensed
 under the GNU General Public License v3.0. See [Copying.txt][copying-link] for
 more details.
 
-Thank you for contributing to PRAL333 and helping us make it even better!
+Thank you for contributing to Gambo and helping us make it even better!
 
-[copying-link]:           https://github.com/Falthera/Pral333/blob/main/Copying.txt
+[copying-link]:           https://github.com/Falthera/Gambo/blob/main/Copying.txt
 [discord-link]:           https://discord.gg/GWDRS3kU6R
-[discussions-link]:       https://github.com/Falthera/Pral333/discussions/new
+[discussions-link]:       https://github.com/Falthera/Gambo/discussions/new
 [creating-my-first-test]: https://github.com/official-stockfish/fishtest/wiki/Creating-my-first-test#create-your-test
-[issue-tracker-link]:     https://github.com/Falthera/Pral333/issues
+[issue-tracker-link]:     https://github.com/Falthera/Gambo/issues
 [ubuntu-compiling-link]:  https://github.com/official-stockfish/Stockfish/wiki/Developers#user-content-installing-a-compiler-1
 [windows-compiling-link]: https://github.com/official-stockfish/Stockfish/wiki/Developers#user-content-installing-a-compiler
 [macos-compiling-link]:   https://github.com/official-stockfish/Stockfish/wiki/Developers#user-content-installing-a-compiler-2

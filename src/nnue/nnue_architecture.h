@@ -27,6 +27,8 @@
 
 #include "features/half_ka_v2_hm.h"
 #include "features/full_threats.h"
+#include "features/king_safety.h"
+#include "features/piece_coordination.h"
 #include "layers/affine_transform.h"
 #include "layers/affine_transform_sparse_input.h"
 #include "layers/clipped_relu.h"
@@ -36,8 +38,10 @@
 namespace Stockfish::Eval::NNUE {
 
 // Input features used in evaluation function
-using ThreatFeatureSet = Features::FullThreats;
-using PSQFeatureSet    = Features::HalfKAv2_hm;
+using ThreatFeatureSet    = Features::FullThreats;
+using PSQFeatureSet       = Features::HalfKAv2_hm;
+using KingSafetyFeatureSet = Features::KingSafety;
+using PieceCoordFeatureSet  = Features::PieceCoordination;
 
 // Number of input feature dimensions after conversion
 constexpr IndexType L1 = 1024;
