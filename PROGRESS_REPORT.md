@@ -60,9 +60,15 @@
 ### Ablation Testing Strategy
 - **10 configurations**: FULL, 6 classical ablations, NOPHASE, NONE, BASE
 - **UCI options** for all 7 components (runtime enable/disable, no recompilation)
-- **Primary test**: 3000 games/pairing at 10+0.1s bullet (power-justified)
+- **Primary test**: 3000 games/pairing at 10+0.1s bullet
 - **Secondary**: tactical suites (STS, WAC, LCT2), endgame TB probes
-- **Statistical**: Bayeselo with 95% CI + Bonferroni-Holm correction; retain if adjusted CI > +5 Elo
+- **Statistical**: Bayeselo with 95% CI + Bonferroni-Holm correction (10 comparisons); retain if adjusted CI > +5 Elo
+
+### ⚠️ Statistical Power Caveat (Corrected)
+- **3,000 games provides ~45-50% power** to detect 5 Elo at adjusted α (10 comparisons)
+- **Required for 80% power at adjusted α: ~5,500 games/pairing**
+- Non-significant ablation results are **inconclusive**, not evidence of no effect
+- Must report achieved power post-hoc; pilot 500 games recommended to estimate ρ
 
 ### Experiment Configurations (Single Binary, UCI Options)
 
@@ -84,17 +90,29 @@
 ### Primary Comparisons (Pre-Registered)
 1. `FULL` vs `BASE` — Overall Phase 2 improvement
 2. `FULL` vs `NONE` — Net value of classical + phase-adaptive
-3. `FULL` vs `NO_C` (each C) — Individual component contribution
+3. `FULL` vs `NO_C` (each C) — Individual component contribution (7 tests)
 4. `FULL` vs `NOPHASE` — Phase-adaptive NNUE blending value
+5. `CLASSICAL_ONLY` vs `NNUE_ONLY` — Classical vs phase-adaptive contribution
+
+**Total confirmatory comparisons: 10** (Bonferroni-Holm applied)
 
 ### Decision Criteria for Phase 3
 Phase 3 authorized ONLY if ALL:
 1. `FULL` beats `BASE` by ≥10 Elo (95% CI lower bound > +5 after correction)
 2. `FULL` beats `NONE` (CI lower bound > 0)
-3. ≥3 of 7 components show clear positive contribution
-4. Mean \|eval\| of `FULL` ≤ 1.2× `NONE` (no inflation)
+3. ≥3 of 7 components show clear positive contribution (adjusted CI > +5 Elo)
+4. Mean \|eval\| `FULL` ≤ 1.2× `NONE` — **descriptive only**; primary evidence from calibration analysis
 5. NPS overhead < 10%
 6. No tactical/endgame regression
+
+**Power caveat:** 3,000 games → ~45% power at adjusted α for 5 Elo. Non-significant ablations = inconclusive.
+
+### Statistical Limitations (Must Acknowledge in Final Report)
+- Low power for ablations (3,000 games → ~45% at adjusted α)
+- ρ unknown; pilot 500 games recommended
+- Draw rate assumption (55%); higher rate → lower power
+- Single network, single thread, bullet TC only
+- Evaluation inflation criterion descriptive only; use calibration analysis
 
 ---
 
@@ -111,16 +129,19 @@ Phase 3 authorized ONLY if ALL:
 
 ### Remaining (on Testing Machine):
 - [ ] Build release binary on testing machine
+- [ ] Run pilot (500 games) to estimate ρ and draw rate
+- [ ] Recalculate achievable power
 - [ ] Run validation plan experiments
 
 ### Critical Validation Required Before Phase 3:
 1. **Compile verification** — confirm all fixes compile cleanly
 2. **Double-counting measurement** — compare eval magnitude: pure NNUE vs NNUE+Classical
-3. **Component ablation** — disable each classical term; measure Elo impact
+3. **Component ablation** — disable each classical term; measure Elo impact (report power)
 4. **Phase-adaptive NNUE ablation** — compare phase-adaptive vs fixed weights
 5. **NPS benchmark** — quantify 15-20 extra attack generations per eval
 6. **Endgame accuracy** — test vs tablebases with classical terms enabled/disabled
 7. **Sacrifice soundness** — verify `positional_sacrifice` discriminates sound/unsound
+8. **Evaluation calibration** — fixed-position calibration analysis (Section 5.5)
 
 ### Known Potential Issues (from prior report + audit):
 1. `evaluate_with_style()` not integrated into UCI output path
@@ -134,7 +155,8 @@ Phase 3 authorized ONLY if ALL:
 
 ## Documentation
 - **Phase 2 Audit**: `GAMBO2_PHASE2_AUDIT.md` (comprehensive static analysis)
-- **Phase 2 Validation Plan**: `GAMBO2_PHASE2_VALIDATION_PLAN.md` (final ablation methodology)
+- **Phase 2 Validation Plan**: `GAMBO2_PHASE2_VALIDATION_PLAN.md` (corrected statistical methodology)
+- **Statistical Review**: `GAMBO2_STATISTICAL_REVIEW.md` (independent power calculation)
 - **Phase 1 Audit**: `GAMBO2_TECHNICAL_AUDIT.md`
 - **CI/CD**: `.github/workflows/gambo-release.yml`
 
@@ -145,7 +167,8 @@ Phase 3 authorized ONLY if ALL:
 ✅ **Phase 1 Complete** — 6 major search/tactical improvements  
 ✅ **Phase 2 Classical Components** — Implemented with **7 defects fixed** via static analysis  
 ⚠️ **Phase 2 Integration Risk** — NNUE double-counting **not resolved**; requires empirical validation  
-📋 **Validation Plan Finalized** — `GAMBO2_PHASE2_VALIDATION_PLAN.md` with power-justified design  
+📋 **Validation Plan Finalized** — `GAMBO2_PHASE2_VALIDATION_PLAN.md` with corrected power analysis  
+📊 **Statistical Review Complete** — `GAMBO2_STATISTICAL_REVIEW.md` with independent verification  
 🔧 **Validation Infrastructure Complete** — 7 UCI ablation options implemented (`f093cc2`)  
 🔒 **Phase 2 Frozen** — No further heuristics or weight changes until validation  
 

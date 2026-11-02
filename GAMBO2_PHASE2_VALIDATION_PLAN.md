@@ -140,32 +140,42 @@ Determine the individual and combined contribution of each Phase 2 component:
 
 **Assumptions for bullet (10+0.1):**
 - Draw rate: ~55% (typical for strong engines at bullet)
+- Within-opening correlation (ρ): ~0.7 (paired openings with colour reversal)
 - Minimum practical effect: 5 Elo
-- Target power: 80% at α = 0.05
+- Target power: 80% at family-wise α = 0.05
+- Primary confirmatory comparisons: 10
 
-**Required games per pairing (paired t-test approximation):**
+**Paired-design power calculation:**
+- 5 Elo → expected score difference per opening pair (2 games): ~0.025
+- SD of paired difference (ρ=0.7): ~0.363
+- Effect size d = 0.025 / 0.363 ≈ 0.069
+- With Bonferroni-Holm (10 comparisons), most stringent α ≈ 0.005
+- Required opening pairs for 80% power: ~2,750 pairs = **5,500 games**
 
-| Effect Size (Elo) | Games for 80% power (α=0.05) | 95% CI Width |
-|-------------------|------------------------------|--------------|
-| 5 | ~3,500 | ±8 |
-| 8 | ~1,400 | ±6 |
-| 10 | ~900 | ±5 |
-| 15 | ~400 | ±4 |
+**Planned sample:** **3,000 games per pairing (1,500 opening pairs)**
 
-**Decision:** **3,000 games per pairing** for primary bullet tests.
-- Provides ~75% power to detect 5 Elo difference
-- 95% CI width ~±8 Elo at 55% draw rate
-- Balances statistical rigour with wall time
+| Metric | Value |
+|--------|-------|
+| 95% CI width (unadjusted) | ±3.7 Elo |
+| 95% CI width (Bonferroni α=0.005) | ±5.2 Elo |
+| Power at α=0.05 (unadjusted) | ~85% |
+| Power at adjusted α (10 comparisons) | **~45-50%** |
 
-**Multiple Comparison Correction:** Bonferroni-Holm for 10 primary comparisons (9 ablations + FULL vs BASE). Adjusted α = 0.05/10 ≈ 0.005 per test. Report both raw and adjusted p-values.
+**Critical caveat:** 3,000 games is UNDERPOWERED for the stated multiple-comparison-adjusted criteria. Non-significant ablation results at adjusted α will be **inconclusive**, not evidence of no effect. Interpret with explicit power reporting.
 
-### 5.3 Sequential Probability Ratio Testing (SPRT)
+**Pilot study recommendation:** First 500 games to estimate actual ρ and draw rate, then recalculate achievable power.
 
-**Optional acceleration:** Use SPRT for early stopping during round-robin.
-- H0: Elo diff = 0; H1: Elo diff = ±10
-- α = 0.05, β = 0.10
-- Stop early if strong evidence for H0 or H1
-- Report SPRT likelihood ratios alongside final CI
+**Multiple Comparison Correction:** Bonferroni-Holm for 10 primary confirmatory comparisons (FULL vs BASE, FULL vs NONE, FULL vs each of 7 ablations, FULL vs NOPHASE). Adjusted α stepwise: 0.05/10, 0.05/9, ..., 0.05/1. Report both raw and adjusted p-values/CIs.
+
+### 5.3 Sequential Testing
+
+**SPRT and optional early stopping are DEFERRED.**
+
+Rationale: Combining sequential probability ratio testing with 10-way Bonferroni-Holm correction and final fixed-sample analysis inflates family-wise Type I error beyond nominal levels. The alpha-spending framework required to properly combine these is complex and error-prone.
+
+**Fixed-sample design:** Run all 3,000 games per pairing to completion. No interim analysis. Report final bootstrap CIs only.
+
+**If early stopping is desired in future:** Use alpha-spending (Lan-DeMets) with pre-registered boundaries, or Bayesian sequential analysis with proper prior. Do not casually combine repeated testing with final analysis.
 
 ### 5.4 Metrics Beyond Elo
 
@@ -178,9 +188,31 @@ Determine the individual and combined contribution of each Phase 2 component:
 | **NPS (nodes/sec)** | Computational overhead |
 | **Search instability (PV changes)** | Time management interaction |
 | **Eval correlation (NNUE vs Classical)** | Double-counting proxy |
-| **Mean |eval| inflation** | Direct double-counting measure |
+| **Mean |eval| inflation** | Descriptive double-counting indicator |
 
-### 5.5 Ablation Statistical Test
+### 5.5 Evaluation Calibration Analysis (Recommended)
+
+The mean |eval| inflation criterion (Section 7.4) is **descriptive only** — not independent proof of correct evaluation. To properly assess whether classical terms improve probabilistic calibration:
+
+1. **Curate fixed position sets by category:**
+   - Opening (first 10 moves, balanced book)
+   - Tactical (STS, WAC, LCT2 positions)
+   - Endgame (6-man Syzygy TB positions)
+   - Quiet positional (strategic test suites)
+
+2. **Measure on each set (using objective `evaluate()`, not `evaluate_with_style()`):**
+   - Mean |eval| for FULL vs NONE
+   - Correlation ρ(eval_FULL, eval_NONE)
+   - Slope/intercept of eval_FULL vs eval_NONE regression
+   - Win probability calibration: bin positions by eval, compare empirical results
+
+3. **Calibration plots:** Bin positions by eval, plot empirical win rate vs predicted win rate. Well-calibrated = points on y=x.
+
+4. **Statistical tests:** Hosmer-Lemeshow or Spiegelhalter test; compare Brier scores.
+
+This directly tests whether classical terms improve **probabilistic calibration**, not just magnitude.
+
+### 5.6 Ablation Statistical Test
 
 For each component C:
 1. Run `FULL` vs `NO_C` (paired, same openings, reversed colors)
@@ -209,14 +241,30 @@ For each component C:
 
 **Phase 3 authorized ONLY if ALL of:**
 
-1. **Overall improvement:** `FULL` beats `BASE` by ≥10 Elo (95% CI lower bound > +5 Elo after correction)
+1. **Overall improvement:** `FULL` beats `BASE` by ≥10 Elo (95% CI lower bound > +5 Elo after Bonferroni-Holm correction)
 2. **Net positive signal:** `FULL` beats `NONE` (CI lower bound > 0)
-3. **Component quality:** ≥3 of 7 components show clear positive contribution (CI lower bound > +5 Elo)
-4. **No catastrophic double-counting:** Mean |eval| of `FULL` ≤ 1.2× `NONE` (no inflation without Elo gain)
+3. **Component quality:** ≥3 of 7 components show clear positive contribution (adjusted CI lower bound > +5 Elo)
+4. **No catastrophic double-counting:** Mean |eval| of `FULL` ≤ 1.2× `NONE` — **descriptive indicator only**; primary evidence from calibration analysis (Section 5.5)
 5. **Efficiency:** NPS overhead < 10% vs `NONE`
 6. **No regression:** Tactical suite solve rate and endgame TB accuracy not significantly worse
 
+**Power caveat:** With 3,000 games/pairing, power to detect 5 Elo at adjusted α ≈ 45-50%. Non-significant ablation results are **inconclusive** — do not interpret as evidence of no effect. Report achieved power post-hoc.
+
 **If criteria not met:** Return to Phase 2 — modify weights, remove components, or redesign.
+
+---
+
+## 7.1 Statistical Limitations and Caveats
+
+| Limitation | Impact | Mitigation |
+|------------|--------|------------|
+| **Low power for ablations** | 3,000 games → ~45% power at adjusted α for 5 Elo | Report achieved power; treat non-significant as inconclusive |
+| **ρ (within-opening correlation) unknown** | Power depends on ρ; if ρ > 0.75, power drops further | Pilot 500 games to estimate ρ; recalculate |
+| **Draw rate assumption** | Higher draw rate → lower power | Monitor actual draw rate |
+| **Single network** | Results may not generalize | Document network used |
+| **Single thread** | No MT scaling data | Note limitation |
+| **Bullet TC only** | Classical TCs untested | Note limitation |
+| **Evaluation inflation criterion** | Descriptive only, not proof | Use calibration analysis (Section 5.5) |
 
 ---
 
