@@ -25,7 +25,7 @@
 
 namespace Gambo::NNUE::Features {
 
-using namespace Gambo;
+using namespace Stockfish;
 
 IndexType ThreatDetection::make_index(Color perspective, Piece attacker, Square from, Square to,
                                       Piece target, Square king_sq) {
