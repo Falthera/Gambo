@@ -48,6 +48,14 @@ Value evaluate(const NNUE::Network&           network,
                Eval::NNUE::AccumulatorStack&  accumulators,
                Eval::NNUE::AccumulatorCaches& caches,
                int                            optimism);
+
+// Returns evaluation with aggressive style bonus applied.
+// Use this for UCI output and root move scoring.
+Value evaluate_with_style(const NNUE::Network&           network,
+                          const Position&                pos,
+                          Eval::NNUE::AccumulatorStack&  accumulators,
+                          Eval::NNUE::AccumulatorCaches& caches,
+                          int                            optimism);
 }  // namespace Eval
 
 }  // namespace Stockfish

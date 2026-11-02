@@ -72,25 +72,25 @@ int piece_activity(const Position& pos, Color us);
 // Classical evaluation component toggles (for ablation testing)
 // Default ON to preserve current behavior
 inline bool use_classical_king_safety() {
-    return globalOptions ? (*globalOptions)["Classical.KingSafety"] : true;
+    return globalOptions ? bool((*globalOptions)["Classical.KingSafety"]) : true;
 }
 inline bool use_classical_initiative() {
-    return globalOptions ? (*globalOptions)["Classical.Initiative"] : true;
+    return globalOptions ? bool((*globalOptions)["Classical.Initiative"]) : true;
 }
 inline bool use_classical_coordination() {
-    return globalOptions ? (*globalOptions)["Classical.Coordination"] : true;
+    return globalOptions ? bool((*globalOptions)["Classical.Coordination"]) : true;
 }
 inline bool use_classical_defense() {
-    return globalOptions ? (*globalOptions)["Classical.Defense"] : true;
+    return globalOptions ? bool((*globalOptions)["Classical.Defense"]) : true;
 }
 inline bool use_classical_sacrifice() {
-    return globalOptions ? (*globalOptions)["Classical.Sacrifice"] : true;
+    return globalOptions ? bool((*globalOptions)["Classical.Sacrifice"]) : true;
 }
 inline bool use_classical_conversion() {
-    return globalOptions ? (*globalOptions)["Classical.Conversion"] : true;
+    return globalOptions ? bool((*globalOptions)["Classical.Conversion"]) : true;
 }
 inline bool use_phase_adaptive_nnue() {
-    return globalOptions ? (*globalOptions)["Eval.PhaseAdaptiveNNUE"] : true;
+    return globalOptions ? bool((*globalOptions)["Eval.PhaseAdaptiveNNUE"]) : true;
 }
 
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
@@ -321,7 +321,7 @@ int king_safety(const Position& pos, Color us) {
         // For white king, pawn shield is on rank 2 (one rank ahead)
         Rank kingRank = rank_of(kingSq);
         if (kingRank <= RANK_7) {
-            Rank shieldRank = kingRank + 1;
+            Rank shieldRank = Rank(int(kingRank) + 1);
             File kingFile = file_of(kingSq);
             for (File f = FILE_A; f <= FILE_H; ++f) {
                 if (std::abs(int(f) - int(kingFile)) <= 1) {
@@ -333,7 +333,7 @@ int king_safety(const Position& pos, Color us) {
         // For black king, pawn shield is on rank 7 (one rank behind)
         Rank kingRank = rank_of(kingSq);
         if (kingRank >= RANK_2) {
-            Rank shieldRank = kingRank - 1;
+            Rank shieldRank = Rank(int(kingRank) - 1);
             File kingFile = file_of(kingSq);
             for (File f = FILE_A; f <= FILE_H; ++f) {
                 if (std::abs(int(f) - int(kingFile)) <= 1) {
@@ -347,7 +347,7 @@ int king_safety(const Position& pos, Color us) {
     // Open files near king
     int openFilesNearKing = 0;
     for (File f = FILE_A; f <= FILE_H; ++f) {
-        if ((FileBB[f] & kingZone) && !(pos.pieces(PAWN) & FileBB[f])) {
+        if ((file_bb(f) & kingZone) && !(pos.pieces(PAWN) & file_bb(f))) {
             openFilesNearKing++;
         }
     }
@@ -400,7 +400,9 @@ int initiative(const Position& pos, Color us) {
     const Bitboard ourMinors = pos.pieces(us, KNIGHT, BISHOP);
     // Count minors that are developed (not on home ranks) and have decent mobility
     int activeMinors = 0;
-    for (Square s : ourMinors) {
+    Bitboard minorsCopy = ourMinors;
+    while (minorsCopy) {
+        Square s = pop_lsb(minorsCopy);
         int mobility = popcount(attacks_bb(pos.piece_on(s), s, pos.pieces()));
         // Knights: mobility >= 4 is decent, Bishops: mobility >= 6 is decent
         if ((type_of(pos.piece_on(s)) == KNIGHT && mobility >= 4) ||
@@ -439,8 +441,12 @@ int piece_coordination(const Position& pos, Color us) {
     Bitboard ourPawns = pos.pieces(us, PAWN);
 
     // 1. Rook + Queen batteries (same file/rank)
-    for (Square r : ourRooks) {
-        for (Square q : ourQueens) {
+    Bitboard rooksCopy = ourRooks;
+    while (rooksCopy) {
+        Square r = pop_lsb(rooksCopy);
+        Bitboard queensCopy = ourQueens;
+        while (queensCopy) {
+            Square q = pop_lsb(queensCopy);
             if (file_of(r) == file_of(q) || rank_of(r) == rank_of(q)) {
                 // Check if path is clear
                 Bitboard between = between_bb(r, q);
@@ -452,8 +458,12 @@ int piece_coordination(const Position& pos, Color us) {
     }
 
     // 2. Bishop + Queen batteries (same diagonal)
-    for (Square b : ourBishops) {
-        for (Square q : ourQueens) {
+    Bitboard bishopsCopy = ourBishops;
+    while (bishopsCopy) {
+        Square b = pop_lsb(bishopsCopy);
+        Bitboard queensCopy2 = ourQueens;
+        while (queensCopy2) {
+            Square q = pop_lsb(queensCopy2);
             if ((file_of(b) + rank_of(b) == file_of(q) + rank_of(q)) ||
                 (file_of(b) - rank_of(b) == file_of(q) - rank_of(q))) {
                 Bitboard between = between_bb(b, q);
@@ -467,7 +477,9 @@ int piece_coordination(const Position& pos, Color us) {
     // 3. Knight outposts (protected by pawn, not attackable by enemy pawns)
     const Bitboard enemyPawnAttacks = pos.attacks_by<PAWN>(them);
     const Bitboard ourPawnAttacks = pos.attacks_by<PAWN>(us);
-    for (Square n : ourKnights) {
+    Bitboard knightsCopy = ourKnights;
+    while (knightsCopy) {
+        Square n = pop_lsb(knightsCopy);
         if (!(enemyPawnAttacks & square_bb(n)) && (ourPawnAttacks & square_bb(n))) {
             // Bonus increases with rank advancement
             int rankAdvancement = (us == WHITE) ? rank_of(n) : 7 - rank_of(n);
@@ -486,9 +498,11 @@ int piece_coordination(const Position& pos, Color us) {
     score += popcount(protectedPawns) * 5;
 
     // 5. Rooks on open/semi-open files
-    for (Square r : ourRooks) {
+    Bitboard rooksCopy2 = ourRooks;
+    while (rooksCopy2) {
+        Square r = pop_lsb(rooksCopy2);
         File f = file_of(r);
-        Bitboard fileBB = FileBB[f];
+        Bitboard fileBB = file_bb(f);
         bool openFile = !(pos.pieces(PAWN) & fileBB);
         bool semiOpen = !(ourPawns & fileBB);
 
@@ -517,11 +531,15 @@ int piece_coordination(const Position& pos, Color us) {
     // 8. Queen + Knight coordination (fork potential near enemy king)
     Square enemyKing = pos.square<KING>(them);
     Bitboard enemyKingZone = attacks_bb<KING>(enemyKing) | square_bb(enemyKing);
-    for (Square q : ourQueens) {
-        for (Square n : ourKnights) {
+    Bitboard queensCopy3 = ourQueens;
+    while (queensCopy3) {
+        Square q = pop_lsb(queensCopy3);
+        Bitboard knightsCopy2 = ourKnights;
+        while (knightsCopy2) {
+            Square n = pop_lsb(knightsCopy2);
             Bitboard queenAttacks = attacks_bb(make_piece(us, QUEEN), q, pos.pieces());
             Bitboard knightAttacks = attacks_bb(make_piece(us, KNIGHT), n, pos.pieces());
-            if ((queenAttacks & knightAttacks & enemyKingZone).count() >= 2) {
+            if (popcount(queenAttacks & knightAttacks & enemyKingZone) >= 2) {
                 score += 15;
             }
         }
@@ -563,17 +581,19 @@ int defensive_resources(const Position& pos, Color us) {
     // 2. Blockade: enemy passed pawns blocked by our pieces
     Bitboard enemyPassedPawns = 0;
     Bitboard enemyPawns = pos.pieces(them, PAWN);
-    for (Square p : enemyPawns) {
+    Bitboard enemyPawnsCopy = enemyPawns;
+    while (enemyPawnsCopy) {
+        Square p = pop_lsb(enemyPawnsCopy);
         // Forward squares on same file
         Bitboard frontSquares = 0;
         File f = file_of(p);
         Rank r = rank_of(p);
         if (them == WHITE) {
-            for (Rank r2 = r + 1; r2 <= RANK_8; ++r2) {
+            for (Rank r2 = Rank(int(r) + 1); r2 <= RANK_8; ++r2) {
                 frontSquares |= square_bb(make_square(f, r2));
             }
         } else {
-            for (Rank r2 = r - 1; r2 >= RANK_1; --r2) {
+            for (Rank r2 = Rank(int(r) - 1); r2 >= RANK_1; --r2) {
                 frontSquares |= square_bb(make_square(f, r2));
             }
         }
@@ -582,24 +602,30 @@ int defensive_resources(const Position& pos, Color us) {
         }
     }
     // Our pieces blockading passed pawns
-    Bitboard ourBlockaders = pos.pieces(us) & pos.attacks_to(enemyPassedPawns);
+    Bitboard ourBlockaders = pos.pieces(us) & pos.attackers_to(enemyPassedPawns);
     score += popcount(ourBlockaders) * 12;
 
     // 3. Counterplay potential: our pieces have active roles
     const Bitboard ourMinors = pos.pieces(us, KNIGHT, BISHOP);
     const Bitboard ourMajors = pos.pieces(us, ROOK, QUEEN);
     int activePieces = 0;
-    for (Square s : ourMinors) {
+    Bitboard minorsCopy = ourMinors;
+    while (minorsCopy) {
+        Square s = pop_lsb(minorsCopy);
         if (popcount(attacks_bb(pos.piece_on(s), s, pos.pieces())) >= 6) activePieces++;
     }
-    for (Square s : ourMajors) {
+    Bitboard majorsCopy = ourMajors;
+    while (majorsCopy) {
+        Square s = pop_lsb(majorsCopy);
         if (popcount(attacks_bb(pos.piece_on(s), s, pos.pieces())) >= 10) activePieces++;
     }
     score += activePieces * 8;
 
     // 4. Defensive cohesion: pieces defend each other
     Bitboard defendedPieces = 0;
-    for (Square s : pos.pieces(us)) {
+    Bitboard ourPiecesCopy = pos.pieces(us);
+    while (ourPiecesCopy) {
+        Square s = pop_lsb(ourPiecesCopy);
         if (pos.attackers_to(s) & pos.pieces(us)) {
             defendedPieces |= square_bb(s);
         }
@@ -622,7 +648,7 @@ int defensive_resources(const Position& pos, Color us) {
     if (popcount(pos.pieces(us, BISHOP)) == 1 && popcount(pos.pieces(them, BISHOP)) == 1) {
         Square ourB = pos.square<BISHOP>(us);
         Square theirB = pos.square<BISHOP>(them);
-        if (color_of(ourB) != color_of(theirB)) {
+        if (color_of(pos.piece_on(ourB)) != color_of(pos.piece_on(theirB))) {
             score += 25; // Opposite-colored bishops drawing tendency
         }
     }
@@ -715,16 +741,18 @@ int advantage_conversion(const Position& pos, Color us, int material) {
     // 3. Passed pawn creation and support
     Bitboard ourPassedPawns = 0;
     Bitboard ourPawns = pos.pieces(us, PAWN);
-    for (Square p : ourPawns) {
+    Bitboard pawnsCopy = ourPawns;
+    while (pawnsCopy) {
+        Square p = pop_lsb(pawnsCopy);
         File f = file_of(p);
         Rank r = rank_of(p);
         Bitboard frontSquares = 0;
         if (us == WHITE) {
-            for (Rank r2 = r + 1; r2 <= RANK_8; ++r2) {
+            for (Rank r2 = Rank(int(r) + 1); r2 <= RANK_8; ++r2) {
                 frontSquares |= square_bb(make_square(f, r2));
             }
         } else {
-            for (Rank r2 = r - 1; r2 >= RANK_1; --r2) {
+            for (Rank r2 = Rank(int(r) - 1); r2 >= RANK_1; --r2) {
                 frontSquares |= square_bb(make_square(f, r2));
             }
         }
@@ -742,7 +770,9 @@ int advantage_conversion(const Position& pos, Color us, int material) {
 
     // 4. Piece restriction: limit enemy piece activity
     Bitboard enemyMinors = pos.pieces(them, KNIGHT, BISHOP);
-    for (Square s : enemyMinors) {
+    Bitboard enemyMinorsCopy = enemyMinors;
+    while (enemyMinorsCopy) {
+        Square s = pop_lsb(enemyMinorsCopy);
         int mobility = popcount(attacks_bb(pos.piece_on(s), s, pos.pieces()));
         if (mobility <= 4) score += 5; // Restricted enemy piece
     }
@@ -783,30 +813,32 @@ int pawn_structure(const Position& pos, Color us) {
         Square s = pop_lsb(temp);
         File f = file_of(s);
         // Clear all pawns on this file and adjacent files
-        temp &= ~(FileBB[f]);
-        if (f > FILE_A) temp &= ~FileBB[f - 1];
-        if (f < FILE_H) temp &= ~FileBB[f + 1];
+        temp &= ~(file_bb(f));
+        if (f > FILE_A) temp &= ~file_bb(File(int(f) - 1));
+        if (f < FILE_H) temp &= ~file_bb(File(int(f) + 1));
         ourIslands++;
     }
     score -= ourIslands * 10;
 
     // Backward pawns
-    for (Square p : ourPawns) {
+    Bitboard pawnsCopy = ourPawns;
+    while (pawnsCopy) {
+        Square p = pop_lsb(pawnsCopy);
         File f = file_of(p);
         Rank r = rank_of(p);
         Bitboard frontSquares = 0;
         if (us == WHITE) {
-            for (Rank r2 = r + 1; r2 <= RANK_8; ++r2) {
+            for (Rank r2 = Rank(int(r) + 1); r2 <= RANK_8; ++r2) {
                 frontSquares |= square_bb(make_square(f, r2));
             }
         } else {
-            for (Rank r2 = r - 1; r2 >= RANK_1; --r2) {
+            for (Rank r2 = Rank(int(r) - 1); r2 >= RANK_1; --r2) {
                 frontSquares |= square_bb(make_square(f, r2));
             }
         }
         Bitboard adjacentFiles = 0;
-        if (f > FILE_A) adjacentFiles |= FileBB[f - 1];
-        if (f < FILE_H) adjacentFiles |= FileBB[f + 1];
+        if (f > FILE_A) adjacentFiles |= file_bb(File(int(f) - 1));
+        if (f < FILE_H) adjacentFiles |= file_bb(File(int(f) + 1));
         Bitboard support = ourPawns & adjacentFiles & frontSquares;
         if (!support && (theirPawns & adjacentFiles & frontSquares)) {
             score -= 15; // Backward pawn
@@ -815,32 +847,36 @@ int pawn_structure(const Position& pos, Color us) {
 
     // Doubled pawns
     for (File f = FILE_A; f <= FILE_H; ++f) {
-        int count = popcount(ourPawns & FileBB[f]);
+        int count = popcount(ourPawns & file_bb(f));
         if (count > 1) score -= (count - 1) * 15;
     }
 
     // Isolated pawns
-    for (Square p : ourPawns) {
+    Bitboard pawnsCopy2 = ourPawns;
+    while (pawnsCopy2) {
+        Square p = pop_lsb(pawnsCopy2);
         File f = file_of(p);
         Bitboard adjacentFiles = 0;
-        if (f > FILE_A) adjacentFiles |= FileBB[f - 1];
-        if (f < FILE_H) adjacentFiles |= FileBB[f + 1];
+        if (f > FILE_A) adjacentFiles |= file_bb(File(int(f) - 1));
+        if (f < FILE_H) adjacentFiles |= file_bb(File(int(f) + 1));
         if (!(ourPawns & adjacentFiles)) {
             score -= 10; // Isolated pawn
         }
     }
 
     // Passed pawns
-    for (Square p : ourPawns) {
+    Bitboard pawnsCopy3 = ourPawns;
+    while (pawnsCopy3) {
+        Square p = pop_lsb(pawnsCopy3);
         File f = file_of(p);
         Rank r = rank_of(p);
         Bitboard frontSquares = 0;
         if (us == WHITE) {
-            for (Rank r2 = r + 1; r2 <= RANK_8; ++r2) {
+            for (Rank r2 = Rank(int(r) + 1); r2 <= RANK_8; ++r2) {
                 frontSquares |= square_bb(make_square(f, r2));
             }
         } else {
-            for (Rank r2 = r - 1; r2 >= RANK_1; --r2) {
+            for (Rank r2 = Rank(int(r) - 1); r2 >= RANK_1; --r2) {
                 frontSquares |= square_bb(make_square(f, r2));
             }
         }
@@ -859,7 +895,9 @@ int piece_activity(const Position& pos, Color us) {
     int score = 0;
 
     // Knight mobility and centralization
-    for (Square n : pos.pieces(us, KNIGHT)) {
+    Bitboard knightsCopy = pos.pieces(us, KNIGHT);
+    while (knightsCopy) {
+        Square n = pop_lsb(knightsCopy);
         int mobility = popcount(attacks_bb(make_piece(us, KNIGHT), n, pos.pieces()));
         score += mobility * 3;
         // Centralization bonus
@@ -868,7 +906,9 @@ int piece_activity(const Position& pos, Color us) {
     }
 
     // Bishop mobility and diagonals
-    for (Square b : pos.pieces(us, BISHOP)) {
+    Bitboard bishopsCopy = pos.pieces(us, BISHOP);
+    while (bishopsCopy) {
+        Square b = pop_lsb(bishopsCopy);
         int mobility = popcount(attacks_bb(make_piece(us, BISHOP), b, pos.pieces()));
         score += mobility * 2;
         // Long diagonal bonus
@@ -877,15 +917,19 @@ int piece_activity(const Position& pos, Color us) {
     }
 
     // Rook mobility and open files
-    for (Square r : pos.pieces(us, ROOK)) {
+    Bitboard rooksCopy = pos.pieces(us, ROOK);
+    while (rooksCopy) {
+        Square r = pop_lsb(rooksCopy);
         int mobility = popcount(attacks_bb(make_piece(us, ROOK), r, pos.pieces()));
         score += mobility;
         File f = file_of(r);
-        if (!(pos.pieces(PAWN) & FileBB[f])) score += 15; // Open file
+        if (!(pos.pieces(PAWN) & file_bb(f))) score += 15; // Open file
     }
 
     // Queen mobility
-    for (Square q : pos.pieces(us, QUEEN)) {
+    Bitboard queensCopy = pos.pieces(us, QUEEN);
+    while (queensCopy) {
+        Square q = pop_lsb(queensCopy);
         int mobility = popcount(attacks_bb(make_piece(us, QUEEN), q, pos.pieces()));
         score += mobility / 2;
     }
