@@ -94,7 +94,7 @@ jobs:
           echo "Network download complete"
           ls -la nn-*.nnue 2>/dev/null || echo "No network file found"
 
-- name: Build release binary
+      - name: Build release binary
         run: |
           set -e
           make clean
