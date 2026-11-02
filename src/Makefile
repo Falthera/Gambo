@@ -73,12 +73,10 @@ SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
 	nnue/nnue_accumulator.cpp nnue/nnue_misc.cpp nnue/network.cpp \
 	nnue/features/half_ka_v2_hm.cpp nnue/features/full_threats.cpp \
 	nnue/features/king_safety.cpp nnue/features/piece_coordination.cpp \
-	nnue/features/pawn_pair.cpp nnue/features/king_relative.cpp \
-	nnue/features/threat_detection.cpp nnue/features/piece_relative.cpp \
-	nnue/layers/affine_transform.cpp nnue/layers/affine_transform_sparse_input.cpp \
-	nnue/layers/clipped_relu.cpp nnue/layers/sqr_clipped_relu.cpp \
 	gambo/nnue/features/pawn_pair.cpp gambo/nnue/features/king_relative.cpp \
 	gambo/nnue/features/threat_detection.cpp gambo/nnue/features/piece_relative.cpp \
+	nnue/layers/affine_transform.cpp nnue/layers/affine_transform_sparse_input.cpp \
+	nnue/layers/clipped_relu.cpp nnue/layers/sqr_clipped_relu.cpp \
 	gambo/nnue/architecture.cpp gambo/nnue/network.cpp \
 	engine.cpp score.cpp memory.cpp
 
