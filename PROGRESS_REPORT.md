@@ -1,168 +1,118 @@
-# PRAL333 Progress Report - May 10, 2026
+# GAMBO 2.0 Progress Report - November 2, 2026
 
-## Current Status: ✅ COMPLETED
+## Current Status: 🔧 PHASE 1 COMPLETE, PHASE 2 INTEGRATION AUDIT COMPLETE (Static Analysis)
 
-### Three Objectives Executed:
+### Phase 1: Search & Tactical Improvements - IMPLEMENTED
+### Phase 2: Classical Evaluation Components - IMPLEMENTED (with defects fixed via static analysis)
 
----
-
-## 1. ✅ BUILD MONITORING - GitHub Actions CI/CD
-
-**Status**: Active and Deployed
-**Workflow**: `.github/workflows/pral333-release.yml`
-**Trigger**: Automatic on every `main` branch push
-
-**Latest Build** (Commit: `d2bd4ee`):
-- ✅ Linux build (GCC 11, x86-64-bmi2)
-- ✅ Windows build (MinGW, x86-64-bmi2)  
-- ✅ macOS build (Clang, x86-64-bmi2)
-- 📦 Auto-tags as `release-pral333-<commit-hash>`
-- 🚀 Published to GitHub Releases
-
-**Build Time**: ~10-15 minutes per full matrix
-**Artifacts**: Available as GitHub Release artifacts
+**Files Modified**: `src/evaluate.cpp` (7 confirmed defects fixed), `GAMBO2_PHASE2_AUDIT.md` (created)
 
 ---
 
-## 2. ✅ TESTING FRAMEWORK - Created
+## Phase 2 Integration Audit Summary
 
-**File**: `tests/test_engine.py`
-**Coverage**:
-- ✓ Compilation validation
-- ✓ Engine startup (UCI protocol)
-- ✓ Initial position evaluation
-- ✓ Perft correctness (depth 5)
-- ✓ Search depth verification  
-- ✓ Performance benchmarking (NPS)
+### ✅ Confirmed Source-Level Defects FIXED
 
-**How to run locally** (once make available):
-```bash
-python tests/test_engine.py
-```
+| # | Defect | Location | Severity | Fix |
+|---|--------|----------|----------|-----|
+| 1 | Duplicate `kingSq` declaration | `evaluate.cpp:244,273` | CRITICAL | Removed duplicate |
+| 2 | Invalid function `squares_between_bb` | `evaluate.cpp:441` | CRITICAL | Changed to `between_bb` |
+| 3 | Invalid `pos.attacks_bb<KING>()` method | `evaluate.cpp:604` | CRITICAL | Changed to free function `attacks_bb<KING>()` |
+| 4 | Logic error: `ourMinors & (ourPressure & ourPawns)` | `evaluate.cpp:339` | HIGH | Replaced with mobility-based active minor detection |
+| 5 | Style leak in `positional_sacrifice()` | `evaluate.cpp:573` | HIGH | Removed `ultra_aggressive()` check; inlined objective compensation |
+| 6 | Inverted pawn shield logic | `evaluate.cpp:257-258` | HIGH | Implemented correct pawn shield squares (rank ±1, adjacent files) |
+| 7 | Wrong phase divisor (16000 vs actual ~8000) | `evaluate.cpp:704` | MEDIUM | Changed to 8000 for correct opening phase |
 
-**Strategy Document**: `IMPROVEMENT_STRATEGY.md`
-- Principles for safe improvements
-- 3 planned conservative changes
-- Validation methodology
-- Success metrics
+### ⚠️ NNUE Double-Counting Risk (HIGH - Requires Runtime Validation)
 
----
+**NNUE Feature Sets vs Classical Components:**
+- KingSafetyFeatureSet ↔ `king_safety()` — **HIGH overlap**
+- ThreatFeatureSet (FullThreats) ↔ `initiative()`, `positional_sacrifice()` — **HIGH overlap**
+- PieceCoordFeatureSet ↔ `piece_coordination()` — **HIGH overlap** (explicit 10 coordination types)
+- PSQFeatureSet (HalfKAv2_hm) ↔ `advantage_conversion()` — **MEDIUM overlap**
 
-## 3. ✅ CONSERVATIVE IMPROVEMENTS - Applied & Deployed
+**Mechanism:** `nnue = blend(psqt, positional)` + `classical = king_safety + initiative + ...` added directly → same concepts evaluated twice.
 
-**Commit**: `d2bd4ee`
-**Strategy**: Evidence-based tuning with <1-6% deviations
+**Recommendation:** Reduce/remove king_safety, initiative, piece_coordination; keep defensive_resources, positional_sacrifice, advantage_conversion as novel corrections.
 
-### Change 1: NNUE Blending Optimization
-```
-Before: (125 * psqt + 131 * positional) / 128
-After:  (126 * psqt + 130 * positional) / 128
-Impact: +PSQT reliability, -positional compensation
-Benefit: Better endgame accuracy
-```
+### 📊 Computational Efficiency Findings
 
-### Change 2: Attack Pressure Scaling  
-```
-Before: material / 1400
-After:  material / 1500
-Impact: Higher threshold for aggressive bonus activation
-Benefit: More attacking play in middlegame
-```
+| Issue | Impact | Recommendation |
+|-------|--------|----------------|
+| 15-20 repeated `attacks_by()` calls/eval | HIGH | Cache 10 attack bitboards once per position |
+| 4-6 repeated `square<KING>()` calls | MEDIUM | Cache king squares in `evaluate()` |
+| Duplicated passed pawn detection | MEDIUM | Unify into `ClassicalEval::passed_pawns()` |
+| `game_phase()` called 3x/eval | LOW | Memoize |
 
-### Change 3: Rule50 Dampening
-```
-Before: v -= v * r50 / 199
-After:  v -= v * r50 / 210
-Impact: 5.5% reduction in draw penalty
-Benefit: Engine seeks wins instead of settling for draws
-```
+### 🏗️ Phase 1/Phase 2 Integration
+
+| Aspect | Status |
+|--------|--------|
+| Objective/style separation | **RESTORED** (fixed positional_sacrifice style leak) |
+| `attack_pressure` vs `initiative` overlap | **CONFIRMED** — same metrics in search (style) and eval (objective) |
+| `sacrifice_compensation` vs `positional_sacrifice` | **DECOUPLED** — classical now independent, fixed cap 80 |
+| Time management coupling | None direct — acceptable |
 
 ---
 
-## Commit History
+## Updated Project Status
 
-```
-d2bd4ee - PRAL333: Conservative engine improvements (evidence-based tuning)
-056d47e - REVERT: Restore original evaluate.cpp and search.cpp
-b575278 - PRAL333: Fix syntax error in evaluate.cpp  
-52e64f5 - PRAL333: Massive engine enhancement (REVERTED - broken)
-513b00c - Label release tags and publish stable releases
-4ac91b9 - Make release workflow push-driven
-29df050 - Initial commit (baseline)
-```
+### ✅ Phase 1 Complete (6 Major Improvements)
+1. Objective/style evaluation decoupling
+2. King-safety-aware dynamic attack bias
+3. Sacrifice compensation detection
+4. Compensation-aware pruning
+5. Aggressive-specific move ordering
+6. Instability-aware time management with endgame dampener
 
----
+### 🔧 Phase 2 Classical Evaluation - Static Analysis Complete
+- 6 components implemented: king_safety, initiative, piece_coordination, defensive_resources, positional_sacrifice, advantage_conversion
+- **7 critical defects fixed** via static analysis
+- **Double-counting risk identified** — requires empirical validation
+- **Computational overhead quantified** — optimization opportunities documented
 
-## What Happens Now
-
-### Immediate (GitHub Actions):
-✅ 3 parallel builds compile the improved engine
-✅ 3 release artifacts created and published
-✅ Auto-tag: `release-pral333-d2bd4ee`
-
-### Testing Phase:
-🔬 Run match against Stockfish:
-```bash
-# Once binaries available
-./pral333-linux-x86-64-bmi2 vs stockfish (10+ games)
-```
-
-### If Improvements Work:
-- ✅ Keep changes in main
-- ✅ Build on these improvements with next round of tuning
-- 📈 Target: +30-50 Elo
-
-### If Improvements Don't Work:
-- ⏮️ Immediate revert (one commit)
-- 🔍 Analyze why and adjust strategy
-- 🚀 Re-deploy with different parameters
+### ⏳ Phase 2 NNUE Feature Sets - Implemented (from prior work)
+- KingSafety, PieceCoordination feature sets added to NNUE architecture
+- FullThreats and HalfKAv2_hm already present
+- 4-feature-set accumulator pipeline ready for training
 
 ---
 
-## Performance Targets
+## Unverified / Requires Runtime Validation
 
-| Metric | Current | Target | Stretch |
-|--------|---------|--------|---------|
-| vs Stockfish | ~-100 Elo | +10 Elo | +100 Elo |
-| Compilation | ✅ Clean | ✅ Clean | ✅ Clean |
-| Nodes/sec | TBD | >10M NPS | >15M NPS |
-| Search stability | ✅ Stable | ✅ Stable | ✅ Stable |
+**All changes remain static source modifications only — no compilation or testing performed.**
 
----
+### Critical Validation Required Before Phase 3:
+1. **Compile verification** — confirm all fixes compile cleanly
+2. **Double-counting measurement** — compare eval magnitude: pure NNUE vs NNUE+Classical
+3. **Component ablation** — disable each classical term; measure Elo impact
+4. **Phase weight tuning** — grid search material/phase scaling parameters
+5. **NPS benchmark** — quantify 15-20 extra attack generations per eval
+6. **Endgame accuracy** — test vs tablebases with classical terms enabled/disabled
+7. **Sacrifice soundness** — verify `positional_sacrifice` discriminates sound/unsound
 
-## Next Steps
-
-1. **Wait for GitHub Actions** to finish builds (5-10 min)
-2. **Download release artifacts** and test locally
-3. **Run match tests** against stockfish
-4. **Measure Elo** - Did improvements work?
-5. **Decide**: Keep changes or try different approach
-6. **Iterate**: Apply next round of improvements if needed
+### Known Potential Issues (from prior report + audit):
+1. `evaluate_with_style()` not integrated into UCI output path
+2. `sacrifice_compensation()` namespace linkage verification needed
+3. Move ordering bonus magnitudes may need tuning
+4. Compensation capping at 3× material may be generous
+5. `advantage_conversion` 300cp hard threshold creates discontinuity
+6. Opposite-colored bishop drawing bonus (+25) may overstate draws
 
 ---
 
 ## Documentation
-
-- **Strategy**: `IMPROVEMENT_STRATEGY.md`
-- **Testing**: `tests/test_engine.py`
-- **CI/CD**: `.github/workflows/pral333-release.yml`
-- **Source**: `src/evaluate.cpp` (main changes)
-
-All changes are reversible with single git command if needed:
-```bash
-git revert d2bd4ee  # Undo improvements
-git revert 056d47e  # Undo revert (go back to broken)
-```
+- **Phase 2 Audit**: `GAMBO2_PHASE2_AUDIT.md` (comprehensive static analysis)
+- **Phase 1 Audit**: `GAMBO2_TECHNICAL_AUDIT.md`
+- **CI/CD**: `.github/workflows/gambo-release.yml`
 
 ---
 
 ## Summary
 
-✅ **Reverted broken aggressive modifications**
-✅ **Restored baseline engine to working state**
-✅ **Created testing framework**
-✅ **Deployed 3 conservative, evidence-based improvements**
-✅ **Triggered automatic CI/CD builds**
-✅ **Ready for validation testing**
+✅ **Phase 1 Complete** — 6 major search/tactical improvements  
+✅ **Phase 2 Classical Components** — Implemented with **7 defects fixed** via static analysis  
+⚠️ **Phase 2 Integration Risk** — NNUE double-counting **not resolved**; requires empirical validation  
+📋 **Documentation Complete** — Audit reports created  
 
-Engine is now in **safe, incremental improvement mode** with easy rollback capability.
+**Engine Status:** Phase 2 classical evaluation audited and source-corrected. **Do not proceed to Phase 3** until runtime validation confirms classical terms provide net positive signal beyond NNUE.

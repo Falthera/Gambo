@@ -37,8 +37,41 @@
 
 namespace Stockfish {
 
+// Forward declarations for classical evaluation terms
+namespace ClassicalEval {
+
+// King safety evaluation - assesses king exposure and pawn shelter
+int king_safety(const Position& pos, Color us);
+
+// Initiative and attacking potential - measures attacking chances
+int initiative(const Position& pos, Color us);
+
+// Piece coordination - evaluates piece harmony, outposts, batteries
+int piece_coordination(const Position& pos, Color us);
+
+// Defensive resources - identifies fortresses, counterplay, defensive cohesion
+int defensive_resources(const Position& pos, Color us);
+
+// Positional sacrifice evaluation - compensation for material given up
+int positional_sacrifice(const Position& pos, Color us);
+
+// Advantage conversion - winning technique, simplification, endgame technique
+int advantage_conversion(const Position& pos, Color us, int material);
+
+// Phase assessment - returns game phase [0..256] (0=endgame, 256=opening)
+int game_phase(const Position& pos);
+
+// Pawn structure evaluation - passed pawns, weaknesses, islands
+int pawn_structure(const Position& pos, Color us);
+
+// Piece activity - mobility, centralization, scope
+int piece_activity(const Position& pos, Color us);
+
+}  // namespace ClassicalEval
+
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
+// This is the OBJECTIVE evaluation, without any style bias.
 Value Eval::evaluate(const Eval::NNUE::Network&     network,
                      const Position&                pos,
                      Eval::NNUE::AccumulatorStack&  accumulators,
@@ -49,23 +82,63 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
 
     auto [psqt, positional] = network.evaluate(pos, accumulators, caches);
 
-    // Optimized NNUE blending: slight increase to PSQT reliability (125->126), decrease positional (131->130)
-    Value nnue = (126 * psqt + 130 * positional) / 128;
+    // Phase-adaptive NNUE blending
+    // Opening/middlegame: trust positional more (strategic understanding)
+    // Endgame: trust PSQT more (tactical precision, king activity)
+    int phase = ClassicalEval::game_phase(pos);
+    int psqtWeight = 126 + (256 - phase) / 8;      // 126..158 (more in endgame)
+    int positionalWeight = 130 - (256 - phase) / 16; // 130..114 (less in endgame)
+    Value nnue = (psqtWeight * psqt + positionalWeight * positional) / 128;
 
     // Blend optimism and eval with nnue complexity
     int nnueComplexity = std::abs(psqt - positional);
     optimism += optimism * nnueComplexity / 476;
     nnue -= nnue * nnueComplexity / 18236;
 
-    int material = 534 * pos.count<PAWN>() + pos.non_pawn_material();
-    int v        = (nnue * (77871 + material) + optimism * (7191 + material)) / 77871;
+    // Classical evaluation terms for positional understanding
+    Color us = pos.side_to_move();
+    Color them = ~us;
 
-    if (Search::ultra_aggressive())
-    {
-        const int attack = Search::attack_pressure(pos, pos.side_to_move());
-        const int scale   = std::clamp(material / 1500, 0, 2);  // Increased threshold from 1400 for more aggressive play
-        v += attack * scale / 3;
-    }
+    int material = 534 * pos.count<PAWN>() + pos.non_pawn_material();
+
+    // King safety (both sides)
+    int ourKingSafety = ClassicalEval::king_safety(pos, us);
+    int theirKingSafety = ClassicalEval::king_safety(pos, them);
+    int kingSafetyScore = (ourKingSafety - theirKingSafety) * (256 - phase) / 256; // More important in middlegame
+
+    // Initiative and attacking potential
+    int ourInitiative = ClassicalEval::initiative(pos, us);
+    int theirInitiative = ClassicalEval::initiative(pos, them);
+    int initiativeScore = (ourInitiative - theirInitiative) * phase / 256; // More important in opening/middlegame
+
+    // Piece coordination
+    int ourCoordination = ClassicalEval::piece_coordination(pos, us);
+    int theirCoordination = ClassicalEval::piece_coordination(pos, them);
+    int coordinationScore = (ourCoordination - theirCoordination) * phase / 256;
+
+    // Defensive resources
+    int ourDefense = ClassicalEval::defensive_resources(pos, us);
+    int theirDefense = ClassicalEval::defensive_resources(pos, them);
+    int defenseScore = (ourDefense - theirDefense) * (256 - phase) / 256;
+
+    // Positional sacrifices
+    int sacrificeScore = ClassicalEval::positional_sacrifice(pos, us);
+
+    // Advantage conversion (winning technique)
+    int conversionScore = ClassicalEval::advantage_conversion(pos, us, material);
+
+    // Combine classical terms
+    int classicalScore = kingSafetyScore + initiativeScore + coordinationScore
+                       + defenseScore + sacrificeScore + conversionScore;
+
+    // Scale classical evaluation by material (less important in endgames)
+    int classicalWeight = std::clamp(material / 800, 0, 64);
+    classicalScore = classicalScore * classicalWeight / 64;
+
+    // Final evaluation: blend NNUE with classical terms
+    // NNUE provides the base, classical terms provide positional corrections
+    int v = (nnue * (77871 + material) + optimism * (7191 + material)) / 77871;
+    v += classicalScore;
 
     // Damp down the evaluation linearly when shuffling
     // Slightly reduced dampening (199->210) to encourage winning play over draws
@@ -73,6 +146,26 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
 
     // Guarantee evaluation does not hit the tablebase range
     v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
+
+    return v;
+}
+
+// Returns evaluation with aggressive style bonus applied.
+// This should be used for UCI output and root move scoring.
+Value Eval::evaluate_with_style(const Eval::NNUE::Network&     network,
+                                const Position&                pos,
+                                Eval::NNUE::AccumulatorStack&  accumulators,
+                                Eval::NNUE::AccumulatorCaches& caches,
+                                int                            optimism) {
+    Value v = evaluate(network, pos, accumulators, caches, optimism);
+
+    if (Search::ultra_aggressive())
+    {
+        int material = 534 * pos.count<PAWN>() + pos.non_pawn_material();
+        const int attack = Search::attack_pressure(pos, pos.side_to_move());
+        const int scale   = std::clamp(material / 1500, 0, 2);
+        v += attack * scale / 3;
+    }
 
     return v;
 }
@@ -106,9 +199,638 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
 
     ss << "Final evaluation      ";
     ss << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)";
-    ss << " [with scaled NNUE, ...]\n";
+    ss << " [with scaled NNUE, classical terms]\n";
+
+    // Classical evaluation breakdown
+    Color us = pos.side_to_move();
+    Color them = ~us;
+    int phase = ClassicalEval::game_phase(pos);
+    int material = 534 * pos.count<PAWN>() + pos.non_pawn_material();
+
+    ss << "\n--- Classical Evaluation Terms ---\n";
+    ss << "Game phase: " << phase << "/256\n";
+
+    int ourKingSafety = ClassicalEval::king_safety(pos, us);
+    int theirKingSafety = ClassicalEval::king_safety(pos, them);
+    ss << "King safety (us): " << ourKingSafety << " (them): " << theirKingSafety << "\n";
+
+    int ourInitiative = ClassicalEval::initiative(pos, us);
+    int theirInitiative = ClassicalEval::initiative(pos, them);
+    ss << "Initiative (us): " << ourInitiative << " (them): " << theirInitiative << "\n";
+
+    int ourCoord = ClassicalEval::piece_coordination(pos, us);
+    int theirCoord = ClassicalEval::piece_coordination(pos, them);
+    ss << "Piece coordination (us): " << ourCoord << " (them): " << theirCoord << "\n";
+
+    int ourDef = ClassicalEval::defensive_resources(pos, us);
+    int theirDef = ClassicalEval::defensive_resources(pos, them);
+    ss << "Defensive resources (us): " << ourDef << " (them): " << theirDef << "\n";
+
+    int sacScore = ClassicalEval::positional_sacrifice(pos, us);
+    ss << "Positional sacrifice: " << sacScore << "\n";
+
+    int convScore = ClassicalEval::advantage_conversion(pos, us, material);
+    ss << "Advantage conversion: " << convScore << "\n";
 
     return ss.str();
 }
+
+// Classical evaluation implementation
+namespace Stockfish::ClassicalEval {
+
+// King safety evaluation - assesses king exposure and pawn shelter
+int king_safety(const Position& pos, Color us) {
+    const Color them = ~us;
+    const Square kingSq = pos.square<KING>(us);
+    const Bitboard kingZone = attacks_bb<KING>(kingSq) | square_bb(kingSq);
+
+    // Enemy pressure on our king zone
+    const Bitboard enemyPressure =
+      pos.attacks_by<PAWN>(them) | pos.attacks_by<KNIGHT>(them) | pos.attacks_by<BISHOP>(them)
+      | pos.attacks_by<ROOK>(them) | pos.attacks_by<QUEEN>(them);
+
+    const int zoneAttacks = popcount(enemyPressure & kingZone);
+    const int directAttackers = popcount(pos.attackers_to(kingSq) & pos.pieces(them));
+
+    // Pawn shield evaluation - squares in front of king that our pawns should occupy
+    const Bitboard ourPawns = pos.pieces(us, PAWN);
+    Bitboard pawnShieldSquares = 0;
+    if (us == WHITE) {
+        // For white king, pawn shield is on rank 2 (one rank ahead)
+        Rank kingRank = rank_of(kingSq);
+        if (kingRank <= RANK_7) {
+            Rank shieldRank = kingRank + 1;
+            File kingFile = file_of(kingSq);
+            for (File f = FILE_A; f <= FILE_H; ++f) {
+                if (std::abs(int(f) - int(kingFile)) <= 1) {
+                    pawnShieldSquares |= square_bb(make_square(f, shieldRank));
+                }
+            }
+        }
+    } else {
+        // For black king, pawn shield is on rank 7 (one rank behind)
+        Rank kingRank = rank_of(kingSq);
+        if (kingRank >= RANK_2) {
+            Rank shieldRank = kingRank - 1;
+            File kingFile = file_of(kingSq);
+            for (File f = FILE_A; f <= FILE_H; ++f) {
+                if (std::abs(int(f) - int(kingFile)) <= 1) {
+                    pawnShieldSquares |= square_bb(make_square(f, shieldRank));
+                }
+            }
+        }
+    }
+    const int pawnShield = popcount(ourPawns & pawnShieldSquares);
+
+    // Open files near king
+    int openFilesNearKing = 0;
+    for (File f = FILE_A; f <= FILE_H; ++f) {
+        if ((FileBB[f] & kingZone) && !(pos.pieces(PAWN) & FileBB[f])) {
+            openFilesNearKing++;
+        }
+    }
+
+    // King safety score: higher = safer (negative = danger)
+    // Pawn shield is most important, then zone attacks, then direct attackers
+    int safety = pawnShield * 16 - zoneAttacks * 8 - directAttackers * 12 - openFilesNearKing * 10;
+
+    // Bonus for castled king (check king position)
+    if (us == WHITE) {
+        if (kingSq == SQ_G1) safety += 20; // Kingside castle
+        else if (kingSq == SQ_C1) safety += 10; // Queenside castle
+    } else {
+        if (kingSq == SQ_G8) safety += 20; // Kingside castle
+        else if (kingSq == SQ_C8) safety += 10; // Queenside castle
+    }
+
+    return safety;
+}
+
+// Initiative and attacking potential - measures attacking chances
+int initiative(const Position& pos, Color us) {
+    const Color them = ~us;
+    const Square theirKing = pos.square<KING>(them);
+    const Square ourKing = pos.square<KING>(us);
+    const Bitboard theirKingZone = attacks_bb<KING>(theirKing) | square_bb(theirKing);
+
+    // Our attacking pressure on enemy king
+    const Bitboard ourPressure =
+      pos.attacks_by<PAWN>(us) | pos.attacks_by<KNIGHT>(us) | pos.attacks_by<BISHOP>(us)
+      | pos.attacks_by<ROOK>(us) | pos.attacks_by<QUEEN>(us);
+
+    const int attackZone = popcount(ourPressure & theirKingZone);
+    const int directAttackers = popcount(pos.attackers_to(theirKing) & pos.pieces(us));
+    const int sliderPressure = popcount(pos.attackers_to(theirKing) & pos.pieces(us, ROOK, BISHOP, QUEEN));
+
+    // Checking moves available
+    int checkingMoves = 0;
+    for (PieceType pt : {PAWN, KNIGHT, BISHOP, ROOK, QUEEN}) {
+        checkingMoves += popcount(pos.check_squares(pt) & pos.pieces(us, pt));
+    }
+
+    // Space advantage (control of central squares)
+    const Bitboard centerSquares = 0x0000001818000000ULL; // e4,d4,e5,d5
+    const Bitboard extendedCenter = 0x00003C7E7E3C0000ULL; // c3-f6
+    int centerControl = popcount(ourPressure & centerSquares) * 2
+                      + popcount(ourPressure & extendedCenter);
+
+    // Piece activity (pieces not blocked by own pawns)
+    const Bitboard ourMinors = pos.pieces(us, KNIGHT, BISHOP);
+    // Count minors that are developed (not on home ranks) and have decent mobility
+    int activeMinors = 0;
+    for (Square s : ourMinors) {
+        int mobility = popcount(attacks_bb(pos.piece_on(s), s, pos.pieces()));
+        // Knights: mobility >= 4 is decent, Bishops: mobility >= 6 is decent
+        if ((type_of(pos.piece_on(s)) == KNIGHT && mobility >= 4) ||
+            (type_of(pos.piece_on(s)) == BISHOP && mobility >= 6)) {
+            activeMinors++;
+        }
+    }
+
+    // Development lead (knights/bishops not on home squares)
+    int developmentLead = 0;
+    Bitboard homeSquares = (us == WHITE) ? (Rank1BB | Rank2BB) : (Rank7BB | Rank8BB);
+    developmentLead = popcount(pos.pieces(us, KNIGHT, BISHOP) & ~homeSquares);
+
+    // Initiative score: higher = more initiative
+    int initiativeScore = attackZone * 12
+                        + directAttackers * 20
+                        + sliderPressure * 15
+                        + checkingMoves * 10
+                        + centerControl * 3
+                        + activeMinors * 8
+                        + developmentLead * 5;
+
+    return initiativeScore;
+}
+
+// Piece coordination - evaluates piece harmony, outposts, batteries
+int piece_coordination(const Position& pos, Color us) {
+    const Color them = ~us;
+    int score = 0;
+
+    // Our pieces
+    Bitboard ourKnights = pos.pieces(us, KNIGHT);
+    Bitboard ourBishops = pos.pieces(us, BISHOP);
+    Bitboard ourRooks = pos.pieces(us, ROOK);
+    Bitboard ourQueens = pos.pieces(us, QUEEN);
+    Bitboard ourPawns = pos.pieces(us, PAWN);
+
+    // 1. Rook + Queen batteries (same file/rank)
+    for (Square r : ourRooks) {
+        for (Square q : ourQueens) {
+            if (file_of(r) == file_of(q) || rank_of(r) == rank_of(q)) {
+                // Check if path is clear
+                Bitboard between = between_bb(r, q);
+                if (!(pos.pieces() & between)) {
+                    score += 25; // Strong battery
+                }
+            }
+        }
+    }
+
+    // 2. Bishop + Queen batteries (same diagonal)
+    for (Square b : ourBishops) {
+        for (Square q : ourQueens) {
+            if ((file_of(b) + rank_of(b) == file_of(q) + rank_of(q)) ||
+                (file_of(b) - rank_of(b) == file_of(q) - rank_of(q))) {
+                Bitboard between = between_bb(b, q);
+                if (!(pos.pieces() & between)) {
+                    score += 20;
+                }
+            }
+        }
+    }
+
+    // 3. Knight outposts (protected by pawn, not attackable by enemy pawns)
+    const Bitboard enemyPawnAttacks = pos.attacks_by<PAWN>(them);
+    const Bitboard ourPawnAttacks = pos.attacks_by<PAWN>(us);
+    for (Square n : ourKnights) {
+        if (!(enemyPawnAttacks & square_bb(n)) && (ourPawnAttacks & square_bb(n))) {
+            // Bonus increases with rank advancement
+            int rankAdvancement = (us == WHITE) ? rank_of(n) : 7 - rank_of(n);
+            score += 15 + rankAdvancement * 3;
+            // Extra bonus if outpost attacks enemy king zone
+            Square enemyKing = pos.square<KING>(them);
+            Bitboard enemyKingZone = attacks_bb<KING>(enemyKing) | square_bb(enemyKing);
+            if (attacks_bb(make_piece(us, KNIGHT), n, pos.pieces()) & enemyKingZone) {
+                score += 10;
+            }
+        }
+    }
+
+    // 4. Pawn chains (mutually protecting pawns)
+    Bitboard protectedPawns = ourPawns & ourPawnAttacks;
+    score += popcount(protectedPawns) * 5;
+
+    // 5. Rooks on open/semi-open files
+    for (Square r : ourRooks) {
+        File f = file_of(r);
+        Bitboard fileBB = FileBB[f];
+        bool openFile = !(pos.pieces(PAWN) & fileBB);
+        bool semiOpen = !(ourPawns & fileBB);
+
+        if (openFile) {
+            score += 20;
+            // Extra bonus if rook penetrates to 7th/8th rank
+            int rank = (us == WHITE) ? rank_of(r) : 7 - rank_of(r);
+            if (rank >= 6) score += (rank - 5) * 10;
+        } else if (semiOpen) {
+            score += 10;
+        }
+    }
+
+    // 6. Bishop pair bonus
+    if (popcount(ourBishops) >= 2) {
+        score += 30;
+        // Extra bonus in open positions
+        if (popcount(pos.pieces(PAWN)) < 12) score += 15;
+    }
+
+    // 7. Knight pair bonus (less than bishop pair)
+    if (popcount(ourKnights) >= 2) {
+        score += 10;
+    }
+
+    // 8. Queen + Knight coordination (fork potential near enemy king)
+    Square enemyKing = pos.square<KING>(them);
+    Bitboard enemyKingZone = attacks_bb<KING>(enemyKing) | square_bb(enemyKing);
+    for (Square q : ourQueens) {
+        for (Square n : ourKnights) {
+            Bitboard queenAttacks = attacks_bb(make_piece(us, QUEEN), q, pos.pieces());
+            Bitboard knightAttacks = attacks_bb(make_piece(us, KNIGHT), n, pos.pieces());
+            if ((queenAttacks & knightAttacks & enemyKingZone).count() >= 2) {
+                score += 15;
+            }
+        }
+    }
+
+    // 9. Connected rooks (on same rank/file, clear path)
+    if (popcount(ourRooks) >= 2) {
+        Square r1 = pop_lsb(ourRooks);
+        Square r2 = pop_lsb(ourRooks);
+        if ((file_of(r1) == file_of(r2) || rank_of(r1) == rank_of(r2))) {
+            Bitboard between = between_bb(r1, r2);
+            if (!(pos.pieces() & between)) {
+                score += 20;
+            }
+        }
+    }
+
+    return score;
+}
+
+// Defensive resources - identifies fortresses, counterplay, defensive cohesion
+int defensive_resources(const Position& pos, Color us) {
+    const Color them = ~us;
+    int score = 0;
+
+    // 1. Fortress detection: blocked pawn structures with no entry points
+    // Look for closed positions where our king is safe behind pawns
+    const Square ourKing = pos.square<KING>(us);
+    const Bitboard ourKingZone = attacks_bb<KING>(ourKing) | square_bb(ourKing);
+    const Bitboard ourPawns = pos.pieces(us, PAWN);
+
+    // Pawn shield integrity
+    const Bitboard pawnShield = ourPawns & ourKingZone;
+    int shieldCount = popcount(pawnShield);
+    if (shieldCount >= 2) {
+        score += shieldCount * 8;
+    }
+
+    // 2. Blockade: enemy passed pawns blocked by our pieces
+    Bitboard enemyPassedPawns = 0;
+    Bitboard enemyPawns = pos.pieces(them, PAWN);
+    for (Square p : enemyPawns) {
+        // Forward squares on same file
+        Bitboard frontSquares = 0;
+        File f = file_of(p);
+        Rank r = rank_of(p);
+        if (them == WHITE) {
+            for (Rank r2 = r + 1; r2 <= RANK_8; ++r2) {
+                frontSquares |= square_bb(make_square(f, r2));
+            }
+        } else {
+            for (Rank r2 = r - 1; r2 >= RANK_1; --r2) {
+                frontSquares |= square_bb(make_square(f, r2));
+            }
+        }
+        if (!(pos.pieces(us, PAWN) & frontSquares)) {
+            enemyPassedPawns |= square_bb(p);
+        }
+    }
+    // Our pieces blockading passed pawns
+    Bitboard ourBlockaders = pos.pieces(us) & pos.attacks_to(enemyPassedPawns);
+    score += popcount(ourBlockaders) * 12;
+
+    // 3. Counterplay potential: our pieces have active roles
+    const Bitboard ourMinors = pos.pieces(us, KNIGHT, BISHOP);
+    const Bitboard ourMajors = pos.pieces(us, ROOK, QUEEN);
+    int activePieces = 0;
+    for (Square s : ourMinors) {
+        if (popcount(attacks_bb(pos.piece_on(s), s, pos.pieces())) >= 6) activePieces++;
+    }
+    for (Square s : ourMajors) {
+        if (popcount(attacks_bb(pos.piece_on(s), s, pos.pieces())) >= 10) activePieces++;
+    }
+    score += activePieces * 8;
+
+    // 4. Defensive cohesion: pieces defend each other
+    Bitboard defendedPieces = 0;
+    for (Square s : pos.pieces(us)) {
+        if (pos.attackers_to(s) & pos.pieces(us)) {
+            defendedPieces |= square_bb(s);
+        }
+    }
+    score += popcount(defendedPieces) * 3;
+
+    // 5. King activity in endgame (when safe)
+    int material = pos.non_pawn_material() + 534 * pos.count<PAWN>();
+    if (material < 8000) { // Endgame
+        // King centralization is good when queens are off
+        if (!pos.pieces(QUEEN)) {
+            int kingCentralization = 0;
+            const Bitboard center16 = 0x00003C3C3C3C0000ULL;
+            if (center16 & square_bb(ourKing)) kingCentralization = 1;
+            score += kingCentralization * 20;
+        }
+    }
+
+    // 6. Drawing resources: opposite-colored bishops, rook vs minor, etc.
+    if (popcount(pos.pieces(us, BISHOP)) == 1 && popcount(pos.pieces(them, BISHOP)) == 1) {
+        Square ourB = pos.square<BISHOP>(us);
+        Square theirB = pos.square<BISHOP>(them);
+        if (color_of(ourB) != color_of(theirB)) {
+            score += 25; // Opposite-colored bishops drawing tendency
+        }
+    }
+
+    return score;
+}
+
+// Positional sacrifice evaluation - compensation for material given up
+// This is the OBJECTIVE evaluation of positional compensation, independent of style mode.
+// Style-specific aggression is applied in evaluate_with_style().
+int positional_sacrifice(const Position& pos, Color us) {
+    const Color them = ~us;
+    const Square theirKing = pos.square<KING>(them);
+    const Square ourKing = pos.square<KING>(us);
+
+    // King safety compensation - enemy king exposure
+    const Bitboard enemyKingZone = attacks_bb<KING>(theirKing) | square_bb(theirKing);
+    const Bitboard ourPressure =
+      pos.attacks_by<PAWN>(us) | pos.attacks_by<KNIGHT>(us) | pos.attacks_by<BISHOP>(us)
+      | pos.attacks_by<ROOK>(us) | pos.attacks_by<QUEEN>(us);
+    const int kingZonePressure = popcount(ourPressure & enemyKingZone);
+
+    // Direct attackers on enemy king
+    const int directAttackers = popcount(pos.attackers_to(theirKing) & pos.pieces(us));
+
+    // Piece activity compensation - our pieces are active
+    const int ourMinorActivity = popcount(pos.pieces(us, KNIGHT, BISHOP) & ~pos.pieces(us, PAWN));
+    const int theirMinorActivity = popcount(pos.pieces(them, KNIGHT, BISHOP) & ~pos.pieces(them, PAWN));
+    const int activityAdvantage = ourMinorActivity - theirMinorActivity;
+
+    // Initiative - we have checks or forcing moves
+    int checkingMoves = 0;
+    for (PieceType pt : {PAWN, KNIGHT, BISHOP, ROOK, QUEEN})
+        checkingMoves += popcount(pos.check_squares(pt) & pos.pieces(us, pt));
+
+    // Development lead in early/middlegame
+    int developmentLead = 0;
+    const Bitboard ourMinors = pos.pieces(us, KNIGHT, BISHOP);
+    const Bitboard homeSquares = (us == WHITE) ? (Rank1BB | Rank2BB) : (Rank7BB | Rank8BB);
+    developmentLead = popcount(ourMinors & ~homeSquares);
+
+    // Compensation formula: king safety is most important
+    int compensation = kingZonePressure * 15
+                     + directAttackers * 25
+                     + activityAdvantage * 8
+                     + checkingMoves * 12
+                     + developmentLead * 3;
+
+    // Cap compensation to avoid overestimating (fixed cap for positional evaluation)
+    return std::min(compensation, 80);
+}
+
+// Advantage conversion - winning technique, simplification, endgame technique
+int advantage_conversion(const Position& pos, Color us, int material) {
+    const Color them = ~us;
+    int score = 0;
+
+    // Only relevant when we have a significant advantage
+    int ourMaterial = pos.non_pawn_material(us) + 534 * pos.count<PAWN>(us);
+    int theirMaterial = pos.non_pawn_material(them) + 534 * pos.count<PAWN>(them);
+    int materialAdv = ourMaterial - theirMaterial;
+
+    if (materialAdv < 300) return 0; // Not enough advantage to convert
+
+    // 1. Simplification: trade pieces when ahead
+    int totalMaterial = ourMaterial + theirMaterial;
+    if (totalMaterial < 16000) { // Late middlegame/endgame
+        // Bonus for trading queens when ahead
+        if (pos.pieces(us, QUEEN) && pos.pieces(them, QUEEN)) {
+            score += 15;
+        }
+        // Bonus for trading rooks when ahead
+        score += (popcount(pos.pieces(us, ROOK)) - popcount(pos.pieces(them, ROOK))) * 8;
+    }
+
+    // 2. King activity: our king should be active in endgame
+    if (totalMaterial < 10000) {
+        Square ourKing = pos.square<KING>(us);
+        const Bitboard center16 = 0x00003C3C3C3C0000ULL;
+        if (center16 & square_bb(ourKing)) {
+            score += 20;
+        }
+        // King approaching enemy weaknesses
+        Bitboard enemyWeaknesses = pos.pieces(them, PAWN); // Simplified
+        if (attacks_bb<KING>(ourKing) & enemyWeaknesses) {
+            score += 10;
+        }
+    }
+
+    // 3. Passed pawn creation and support
+    Bitboard ourPassedPawns = 0;
+    Bitboard ourPawns = pos.pieces(us, PAWN);
+    for (Square p : ourPawns) {
+        File f = file_of(p);
+        Rank r = rank_of(p);
+        Bitboard frontSquares = 0;
+        if (us == WHITE) {
+            for (Rank r2 = r + 1; r2 <= RANK_8; ++r2) {
+                frontSquares |= square_bb(make_square(f, r2));
+            }
+        } else {
+            for (Rank r2 = r - 1; r2 >= RANK_1; --r2) {
+                frontSquares |= square_bb(make_square(f, r2));
+            }
+        }
+        if (!(pos.pieces(them, PAWN) & frontSquares)) {
+            ourPassedPawns |= square_bb(p);
+            // Bonus for advanced passed pawns
+            int rank = (us == WHITE) ? rank_of(p) : 7 - rank_of(p);
+            score += rank * 5;
+            // Bonus for supported passed pawns
+            if (pos.attackers_to(p) & pos.pieces(us)) {
+                score += 15;
+            }
+        }
+    }
+
+    // 4. Piece restriction: limit enemy piece activity
+    Bitboard enemyMinors = pos.pieces(them, KNIGHT, BISHOP);
+    for (Square s : enemyMinors) {
+        int mobility = popcount(attacks_bb(pos.piece_on(s), s, pos.pieces()));
+        if (mobility <= 4) score += 5; // Restricted enemy piece
+    }
+
+    // 5. Zugzwang potential in endgames
+    if (totalMaterial < 6000 && !pos.pieces(QUEEN)) {
+        // Positions where opponent has no good moves
+        score += 10;
+    }
+
+    return score;
+}
+
+// Phase assessment - returns game phase [0..256] (0=endgame, 256=opening)
+int game_phase(const Position& pos) {
+    int phase = 0;
+    // Phase based on non-pawn material
+    // Opening: ~256, Middlegame: ~128, Endgame: ~0
+    int npm = pos.non_pawn_material();
+    // Max practical non-pawn material (starting ~6300, max with promotions ~12500)
+    // Using 8000 gives opening phase ~200, middlegame ~100, endgame ~0
+    phase = std::clamp(npm * 256 / 8000, 0, 256);
+    return phase;
+}
+
+// Pawn structure evaluation - passed pawns, weaknesses, islands
+int pawn_structure(const Position& pos, Color us) {
+    const Color them = ~us;
+    int score = 0;
+
+    Bitboard ourPawns = pos.pieces(us, PAWN);
+    Bitboard theirPawns = pos.pieces(them, PAWN);
+
+    // Pawn islands (fewer is better)
+    int ourIslands = 0;
+    Bitboard temp = ourPawns;
+    while (temp) {
+        Square s = pop_lsb(temp);
+        File f = file_of(s);
+        // Clear all pawns on this file and adjacent files
+        temp &= ~(FileBB[f]);
+        if (f > FILE_A) temp &= ~FileBB[f - 1];
+        if (f < FILE_H) temp &= ~FileBB[f + 1];
+        ourIslands++;
+    }
+    score -= ourIslands * 10;
+
+    // Backward pawns
+    for (Square p : ourPawns) {
+        File f = file_of(p);
+        Rank r = rank_of(p);
+        Bitboard frontSquares = 0;
+        if (us == WHITE) {
+            for (Rank r2 = r + 1; r2 <= RANK_8; ++r2) {
+                frontSquares |= square_bb(make_square(f, r2));
+            }
+        } else {
+            for (Rank r2 = r - 1; r2 >= RANK_1; --r2) {
+                frontSquares |= square_bb(make_square(f, r2));
+            }
+        }
+        Bitboard adjacentFiles = 0;
+        if (f > FILE_A) adjacentFiles |= FileBB[f - 1];
+        if (f < FILE_H) adjacentFiles |= FileBB[f + 1];
+        Bitboard support = ourPawns & adjacentFiles & frontSquares;
+        if (!support && (theirPawns & adjacentFiles & frontSquares)) {
+            score -= 15; // Backward pawn
+        }
+    }
+
+    // Doubled pawns
+    for (File f = FILE_A; f <= FILE_H; ++f) {
+        int count = popcount(ourPawns & FileBB[f]);
+        if (count > 1) score -= (count - 1) * 15;
+    }
+
+    // Isolated pawns
+    for (Square p : ourPawns) {
+        File f = file_of(p);
+        Bitboard adjacentFiles = 0;
+        if (f > FILE_A) adjacentFiles |= FileBB[f - 1];
+        if (f < FILE_H) adjacentFiles |= FileBB[f + 1];
+        if (!(ourPawns & adjacentFiles)) {
+            score -= 10; // Isolated pawn
+        }
+    }
+
+    // Passed pawns
+    for (Square p : ourPawns) {
+        File f = file_of(p);
+        Rank r = rank_of(p);
+        Bitboard frontSquares = 0;
+        if (us == WHITE) {
+            for (Rank r2 = r + 1; r2 <= RANK_8; ++r2) {
+                frontSquares |= square_bb(make_square(f, r2));
+            }
+        } else {
+            for (Rank r2 = r - 1; r2 >= RANK_1; --r2) {
+                frontSquares |= square_bb(make_square(f, r2));
+            }
+        }
+        if (!(theirPawns & frontSquares)) {
+            int rank = (us == WHITE) ? rank_of(p) : 7 - rank_of(p);
+            score += rank * 8;
+            if (rank >= 6) score += 20; // Advanced passed pawn
+        }
+    }
+
+    return score;
+}
+
+// Piece activity - mobility, centralization, scope
+int piece_activity(const Position& pos, Color us) {
+    int score = 0;
+
+    // Knight mobility and centralization
+    for (Square n : pos.pieces(us, KNIGHT)) {
+        int mobility = popcount(attacks_bb(make_piece(us, KNIGHT), n, pos.pieces()));
+        score += mobility * 3;
+        // Centralization bonus
+        const Bitboard center16 = 0x00003C3C3C3C0000ULL;
+        if (center16 & square_bb(n)) score += 10;
+    }
+
+    // Bishop mobility and diagonals
+    for (Square b : pos.pieces(us, BISHOP)) {
+        int mobility = popcount(attacks_bb(make_piece(us, BISHOP), b, pos.pieces()));
+        score += mobility * 2;
+        // Long diagonal bonus
+        if ((b == SQ_A1 || b == SQ_H8) && us == WHITE) score += 5;
+        if ((b == SQ_A8 || b == SQ_H1) && us == BLACK) score += 5;
+    }
+
+    // Rook mobility and open files
+    for (Square r : pos.pieces(us, ROOK)) {
+        int mobility = popcount(attacks_bb(make_piece(us, ROOK), r, pos.pieces()));
+        score += mobility;
+        File f = file_of(r);
+        if (!(pos.pieces(PAWN) & FileBB[f])) score += 15; // Open file
+    }
+
+    // Queen mobility
+    for (Square q : pos.pieces(us, QUEEN)) {
+        int mobility = popcount(attacks_bb(make_piece(us, QUEEN), q, pos.pieces()));
+        score += mobility / 2;
+    }
+
+    return score;
+}
+
+}  // namespace Stockfish::ClassicalEval
 
 }  // namespace Stockfish
