@@ -44,9 +44,11 @@ jobs:
 
       - name: Build release binary
         run: |
+          set -e
           make clean
-          timeout 600 make -j4 profile-build ARCH=x86-64-bmi2 COMP=gcc EXE=gambi || (echo "Build timed out" && exit 1)
+          timeout 600 make -j4 profile-build ARCH=x86-64-bmi2 COMP=gcc EXE=gambi
           make strip ARCH=x86-64-bmi2 COMP=gcc EXE=gambi
+          ls -la gambi
           cp gambi ../gambo-linux-x86-64-bmi2
 
       - name: Package release files
@@ -98,13 +100,11 @@ jobs:
         run: |
           set -e
           make clean
-          # MSYS2 may not have timeout, use fallback
-          if command -v timeout &> /dev/null; then
-            timeout 600 make -j4 profile-build ARCH=x86-64-bmi2 COMP=mingw EXE=gambi.exe RUN_PREFIX="cmd.exe /c"
-          else
-            make -j4 profile-build ARCH=x86-64-bmi2 COMP=mingw EXE=gambi.exe RUN_PREFIX="cmd.exe /c"
-          fi
+          echo "Building Windows binary with mingw..."
+          # Use cmd.exe for the bench step to avoid MSYS2 bash hang
+          make -j4 profile-build ARCH=x86-64-bmi2 COMP=mingw EXE=gambi.exe RUN_PREFIX="cmd.exe /c"
           make strip ARCH=x86-64-bmi2 COMP=mingw EXE=gambi.exe
+          ls -la gambi.exe
           cp gambi.exe ../gambo-windows-x86-64-bmi2.exe
 
       - name: Package release files
@@ -152,9 +152,11 @@ jobs:
 
       - name: Build release binary
         run: |
+          set -e
           make clean
-          gtimeout 600 make -j4 profile-build ARCH=x86-64-bmi2 COMP=clang EXE=gambi || (echo "Build timed out" && exit 1)
+          gtimeout 600 make -j4 profile-build ARCH=x86-64-bmi2 COMP=clang EXE=gambi
           make strip ARCH=x86-64-bmi2 COMP=clang EXE=gambi
+          ls -la gambi
           cp gambi ../gambo-macos-x86-64-bmi2
 
       - name: Package release files
