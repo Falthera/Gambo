@@ -28,11 +28,13 @@
 #include "../../../types.h"
 #include "../nnue_common.h"
 
-namespace Gambo {
+namespace Stockfish {
 class Position;
 }
 
 namespace Gambo::NNUE::Features {
+
+using namespace Stockfish;
 
 class KingRelative {
 public:
