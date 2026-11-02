@@ -58,18 +58,26 @@ struct ValueList {
 
 // Dirty piece for incremental updates
 struct DirtyPiece {
+    enum Type { Moved, Captured, Promoted, EnPassant };
+    
+    Type type() const { return type_; }
     Piece piece;
     Square from;
     Square to;
+    Type type_;
 };
 
 // Dirty threats for incremental updates
 struct DirtyThreats {
+    enum Type { Moved, Captured };
+    
+    Type type() const { return type_; }
     Piece attacker;
     Square from;
     Square to;
     Piece target;
     Square ksq;
+    Type type_;
 };
 
 // Index list type alias (to be specialized by feature sets)
