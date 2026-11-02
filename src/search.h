@@ -58,6 +58,9 @@ class OptionsMap;
 
 namespace Search {
 
+// Forward declarations
+struct Stack;
+
 enum class StyleMode : int { Balanced = 0, UltraAggressive = 1 };
 
 inline std::atomic<int>& style_mode_storage() {
