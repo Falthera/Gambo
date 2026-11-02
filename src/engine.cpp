@@ -135,6 +135,9 @@ Engine::Engine(std::optional<std::string> path) :
     options.add("Classical.Sacrifice", Option(true));
     options.add("Classical.Conversion", Option(true));
 
+    // Phase-adaptive NNUE blending toggle (for ablation testing)
+    options.add("Eval.PhaseAdaptiveNNUE", Option(true));
+
     options.add(  //
       "SyzygyPath", Option("", [](const Option& o) {
           Tablebases::init(o);

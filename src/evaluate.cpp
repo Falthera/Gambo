@@ -89,6 +89,9 @@ inline bool use_classical_sacrifice() {
 inline bool use_classical_conversion() {
     return globalOptions ? (*globalOptions)["Classical.Conversion"] : true;
 }
+inline bool use_phase_adaptive_nnue() {
+    return globalOptions ? (*globalOptions)["Eval.PhaseAdaptiveNNUE"] : true;
+}
 
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
@@ -104,11 +107,17 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
     auto [psqt, positional] = network.evaluate(pos, accumulators, caches);
 
     // Phase-adaptive NNUE blending
-    // Opening/middlegame: trust positional more (strategic understanding)
-    // Endgame: trust PSQT more (tactical precision, king activity)
     int phase = ClassicalEval::game_phase(pos);
-    int psqtWeight = 126 + (256 - phase) / 8;      // 126..158 (more in endgame)
-    int positionalWeight = 130 - (256 - phase) / 16; // 130..114 (less in endgame)
+    int psqtWeight, positionalWeight;
+    if (use_phase_adaptive_nnue()) {
+        // Phase-adaptive: Opening/middlegame trust positional more; endgame trust PSQT more
+        psqtWeight = 126 + (256 - phase) / 8;      // 126..158 (more in endgame)
+        positionalWeight = 130 - (256 - phase) / 16; // 130..114 (less in endgame)
+    } else {
+        // Fixed Phase 1 weights (pre-phase-adaptive): PSQT 126, Positional 130
+        psqtWeight = 126;
+        positionalWeight = 130;
+    }
     Value nnue = (psqtWeight * psqt + positionalWeight * positional) / 128;
 
     // Blend optimism and eval with nnue complexity
@@ -248,6 +257,7 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
 
     ss << "\n--- Classical Evaluation Terms ---\n";
     ss << "Game phase: " << phase << "/256\n";
+    ss << "PhaseAdaptiveNNUE: " << (use_phase_adaptive_nnue() ? "ON" : "OFF") << "\n";
     ss << "KingSafety: " << (use_classical_king_safety() ? "ON" : "OFF") << "\n";
     ss << "Initiative: " << (use_classical_initiative() ? "ON" : "OFF") << "\n";
     ss << "Coordination: " << (use_classical_coordination() ? "ON" : "OFF") << "\n";
