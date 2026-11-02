@@ -1,12 +1,12 @@
-# PRAL333, a UCI chess playing engine derived from Glaurung 2.1
-# Copyright (C) 2004-2026 The PRAL333 developers (see AUTHORS file)
+# Gambo, a UCI chess playing engine derived from Glaurung 2.1
+# Copyright (C) 2004-2026 The Gambo developers (see AUTHORS file)
 #
-# PRAL333 is free software: you can redistribute it and/or modify
+# Gambo is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# PRAL333 is distributed in the hope that it will be useful,
+# Gambo is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
@@ -54,9 +54,9 @@ endif
 
 ### Executable name
 ifeq ($(target_windows),yes)
-	EXE = pral333.exe
+	EXE = gambi.exe
 else
-	EXE = pral333
+	EXE = gambi
 endif
 
 ### Installation dir definitions
@@ -64,7 +64,7 @@ PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin
 
 ### Built-in benchmark for pgo-builds
-PGOBENCH = $(RUN_PREFIX) ./$(EXE) bench
+PGOBENCH = $(RUN_PREFIX) ./$(EXE) bench 16 1 10 default depth
 
 ### Source and object files
 SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
@@ -936,7 +936,7 @@ endif
 
 help:
 	@echo "" && \
-	echo "To compile PRAL333, type: " && \
+	echo "To compile Gambo, type: " && \
 	echo "" && \
 	echo "make -j target [ARCH=arch] [COMP=compiler] [COMPCXX=cxx]" && \
 	echo "" && \
@@ -1032,7 +1032,7 @@ profile-build: net config-sanity objclean profileclean
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) $(profile_make)
 	@echo ""
 	@echo "Step 2/4. Running benchmark for pgo-build ..."
-	$(PGOBENCH) > PGOBENCH.out 2>&1
+	timeout 7200 $(PGOBENCH) > PGOBENCH.out 2>&1 || (tail -n 20 PGOBENCH.out; exit 1)
 	tail -n 4 PGOBENCH.out
 	@echo ""
 	@echo "Step 3/4. Building optimized executable ..."
@@ -1065,11 +1065,11 @@ universal-object-pgo: objclean profileclean universalclean
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) ENV_LDFLAGS='$(SAVE_TEMPS) $(NNUE_EMBED_OBJ)' $(profile_use)
 	@echo ""
 	@echo "Step 4/4. Extracting LTO-optimized relocatable object ..."
-	cp "$(basename $(EXE))$(LTO_OBJ_SUFFIX)" pral333.o
+	cp "$(basename $(EXE))$(LTO_OBJ_SUFFIX)" gambi.o
 
 universal-object-nopgo: objclean universalclean
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) ENV_LDFLAGS='$(SAVE_TEMPS) $(NNUE_EMBED_OBJ)' all
-	cp "$(basename $(EXE))$(LTO_OBJ_SUFFIX)" pral333.o
+	cp "$(basename $(EXE))$(LTO_OBJ_SUFFIX)" gambi.o
 
 strip:
 	$(STRIP) $(EXE)
@@ -1085,16 +1085,16 @@ clean: objclean profileclean universalclean
 
 # clean binaries and objects
 objclean:
-	@rm -f pral333 pral333.exe *.o ./syzygy/*.o ./nnue/*.o ./nnue/features/*.o $(BUILD_SHA_FILE) $(BUILD_DATE_FILE)
+	@rm -f gambi gambi.exe *.o ./syzygy/*.o ./nnue/*.o ./nnue/features/*.o $(BUILD_SHA_FILE) $(BUILD_DATE_FILE)
 
 # clean auxiliary profiling files
 profileclean:
 	@rm -rf profdir
 	@rm -f bench.txt *.gcda *.gcno ./syzygy/*.gcda ./nnue/*.gcda ./nnue/features/*.gcda *.s PGOBENCH.out
-	@rm -f pral333.profdata *.profraw
-	@rm -f pral333.*args*
-	@rm -f pral333.*lt*
-	@rm -f pral333.res
+	@rm -f gambi.profdata *.profraw
+	@rm -f gambi.*args*
+	@rm -f gambi.*lt*
+	@rm -f gambi.res
 	@rm -f ./-lstdc++.res
 
 universalclean:
@@ -1197,9 +1197,9 @@ clang-profile-make:
 	all
 
 clang-profile-use:
-	$(XCRUN) $(LLVM_PROFDATA) merge -output=pral333.profdata *.profraw
+	$(XCRUN) $(LLVM_PROFDATA) merge -output=gambi.profdata *.profraw
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) \
-	EXTRACXXFLAGS='-fprofile-use=pral333.profdata' \
+	EXTRACXXFLAGS='-fprofile-use=gambi.profdata' \
 	EXTRALDFLAGS='-fprofile-use ' \
 	all
 
@@ -1225,9 +1225,9 @@ icx-profile-make:
 	all
 
 icx-profile-use:
-	$(XCRUN) $(LLVM_PROFDATA) merge -output=pral333.profdata *.profraw
+	$(XCRUN) $(LLVM_PROFDATA) merge -output=gambi.profdata *.profraw
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) \
-	EXTRACXXFLAGS='-fprofile-instr-use=pral333.profdata' \
+	EXTRACXXFLAGS='-fprofile-instr-use=gambi.profdata' \
 	EXTRALDFLAGS='-fprofile-use ' \
 	all
 
@@ -1272,8 +1272,8 @@ TRACKED_TOP := $(sort $(foreach f,$(SRCS) $(HEADERS) Makefile incbin,$(firstword
 
 # Baseline x86-64 must come first in the final link (Windows --allow-multiple-definition
 # uses the first copy of inline duplicates)
-ARCH_OBJS := $(TEMP_DIR)/x86-64/pral333.o \
-			 $(patsubst %,$(TEMP_DIR)/%/pral333.o,$(filter-out x86-64,$(UNIVERSAL_ARCHES)))
+ARCH_OBJS := $(TEMP_DIR)/x86-64/gambi.o \
+			 $(patsubst %,$(TEMP_DIR)/%/gambi.o,$(filter-out x86-64,$(UNIVERSAL_ARCHES)))
 
 UNIVERSAL_FINAL_FLAGS := -fno-exceptions -Os -static-libstdc++ -static-libgcc -Wno-c++26-extensions
 ifeq ($(KERNEL),Linux)
@@ -1282,10 +1282,10 @@ else
     UNIVERSAL_FINAL_FLAGS += -Wl,--allow-multiple-definition -static
 endif
 
-# $(call arch-namespace,x86-64-avx2) => PRAL333_x86_64_avx2
+# $(call arch-namespace,x86-64-avx2) => GAMBO_x86_64_avx2
 arch-suffix     = $(subst -,_,$(1))
-arch-namespace  = PRAL333_$(call arch-suffix,$(1))
-# Itanium ABI mangled name for PRAL333_<suffix>::main(int, char**)
+arch-namespace  = GAMBO_$(call arch-suffix,$(1))
+# Itanium ABI mangled name for GAMBO_<suffix>::main(int, char**)
 arch-mangled    = _ZN$(shell printf %s '$(call arch-namespace,$(1))' | wc -c)$(call arch-namespace,$(1))4mainEiPPc
 
 arch-cxxflags   = --embed-dir=$(CURDIR) -DStockfish=$(call arch-namespace,$(1)) -DUNIVERSAL_BINARY \
@@ -1320,10 +1320,10 @@ $(TEMP_DIR)/%/.setup: | $(TEMP_DIR)
 	@$(foreach f,$(TRACKED_TOP),ln -s $(CURDIR)/$(f) $(TEMP_DIR)/$*/$(f);)
 	@touch $@
 
-# Per-arch pral333.o
+# Per-arch gambi.o
 .SECONDARY: $(patsubst %,$(TEMP_DIR)/%/.setup,$(UNIVERSAL_ARCHES))
 
-$(TEMP_DIR)/%/pral333.o: $(TEMP_DIR)/%/.setup $(NNUE_EMBED_OBJ) $(NET_SENTINEL)
+$(TEMP_DIR)/%/gambi.o: $(TEMP_DIR)/%/.setup $(NNUE_EMBED_OBJ) $(NET_SENTINEL)
 	+ENV_CXXFLAGS='$(ENV_CXXFLAGS) $(call arch-cxxflags,$*)' \
 	    $(MAKE) -C $(TEMP_DIR)/$* $(UOBJ_TGT) \
 	        ARCH=$* CXX=$(CXX) \
