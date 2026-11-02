@@ -64,7 +64,7 @@ PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin
 
 ### Built-in benchmark for pgo-builds
-PGOBENCH = $(RUN_PREFIX) ./$(EXE) bench 16 1 10 default depth
+PGOBENCH = $(RUN_PREFIX) ./$(EXE) bench 16 1 8 default depth
 
 ### Source and object files
 SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
@@ -1206,9 +1206,9 @@ clang-profile-use:
 gcc-profile-make:
 	@mkdir -p profdir
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) \
-	EXTRACXXFLAGS='-fprofile-generate=profdir' \
+	EXTRACXXFLAGS='-fprofile-generate=profdir -flto=auto -fno-ipa-cp-clone' \
 	EXTRACXXFLAGS+=$(EXTRAPROFILEFLAGS) \
-	EXTRALDFLAGS='-lgcov' \
+	EXTRALDFLAGS='-lgcov -flto=auto' \
 	all
 
 gcc-profile-use:
