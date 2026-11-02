@@ -32,7 +32,11 @@ jobs:
           version: 11
 
       - name: Download the used network from the fishtest framework
-        run: make net
+        run: |
+          echo "Downloading network..."
+          make net 2>&1
+          echo "Network download complete"
+          ls -la nn-*.nnue 2>/dev/null || echo "No network file found"
 
       - name: Build release binary
         run: |
@@ -80,7 +84,11 @@ jobs:
           install: mingw-w64-x86_64-gcc make git zip
 
       - name: Download the used network from the fishtest framework
-        run: make net
+        run: |
+          echo "Downloading network..."
+          make net 2>&1
+          echo "Network download complete"
+          ls -la nn-*.nnue 2>/dev/null || echo "No network file found"
 
       - name: Build release binary
         run: |
@@ -122,7 +130,11 @@ jobs:
           persist-credentials: false
 
       - name: Download the used network from the fishtest framework
-        run: make net
+        run: |
+          echo "Downloading network..."
+          make net 2>&1
+          echo "Network download complete"
+          ls -la nn-*.nnue 2>/dev/null || echo "No network file found"
 
       - name: Build release binary
         run: |
