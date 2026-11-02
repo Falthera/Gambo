@@ -265,7 +265,7 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
 }
 
 // Classical evaluation implementation
-namespace Stockfish::Eval::ClassicalEval {
+namespace Eval::ClassicalEval {
 
 // King safety evaluation - assesses king exposure and pawn shelter
 int king_safety(const Position& pos, Color us) {
@@ -907,6 +907,6 @@ int piece_activity(const Position& pos, Color us) {
     return score;
 }
 
-}  // namespace Stockfish::Eval::ClassicalEval
+}  // namespace Eval::ClassicalEval
 
 }  // namespace Stockfish
