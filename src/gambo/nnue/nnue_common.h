@@ -30,6 +30,8 @@
 
 namespace Gambo::NNUE {
 
+using namespace Stockfish;
+
 // Cache line size for alignment
 constexpr int CacheLineSize = 64;
 
@@ -43,17 +45,17 @@ using TransformedFeatureType = int16_t;
 template<typename T, int Size>
 struct ValueList {
     T data[Size];
-    int size = 0;
+    int count = 0;
     
     T& operator[](int i) { return data[i]; }
     const T& operator[](int i) const { return data[i]; }
     
     void push_back(const T& value) {
-        if (size < Size) data[size++] = value;
+        if (count < Size) data[count++] = value;
     }
     
-    int size() const { return size; }
-    void clear() { size = 0; }
+    int size() const { return count; }
+    void clear() { count = 0; }
 };
 
 // Dirty piece for incremental updates
