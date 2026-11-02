@@ -75,7 +75,7 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
     auto [psqt, positional] = network.evaluate(pos, accumulators, caches);
 
     // Phase-adaptive NNUE blending
-    int phase = ClassicalEval::game_phase(pos);
+    int phase = Eval::ClassicalEval::game_phase(pos);
     int psqtWeight, positionalWeight;
     if (use_phase_adaptive_nnue()) {
         // Phase-adaptive: Opening/middlegame trust positional more; endgame trust PSQT more
@@ -102,45 +102,45 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
     // King safety (both sides)
     int kingSafetyScore = 0;
     if (use_classical_king_safety()) {
-        int ourKingSafety = ClassicalEval::king_safety(pos, us);
-        int theirKingSafety = ClassicalEval::king_safety(pos, them);
+        int ourKingSafety = Eval::ClassicalEval::king_safety(pos, us);
+        int theirKingSafety = Eval::ClassicalEval::king_safety(pos, them);
         kingSafetyScore = (ourKingSafety - theirKingSafety) * (256 - phase) / 256;
     }
 
     // Initiative and attacking potential
     int initiativeScore = 0;
     if (use_classical_initiative()) {
-        int ourInitiative = ClassicalEval::initiative(pos, us);
-        int theirInitiative = ClassicalEval::initiative(pos, them);
+        int ourInitiative = Eval::ClassicalEval::initiative(pos, us);
+        int theirInitiative = Eval::ClassicalEval::initiative(pos, them);
         initiativeScore = (ourInitiative - theirInitiative) * phase / 256;
     }
 
     // Piece coordination
     int coordinationScore = 0;
     if (use_classical_coordination()) {
-        int ourCoordination = ClassicalEval::piece_coordination(pos, us);
-        int theirCoordination = ClassicalEval::piece_coordination(pos, them);
+        int ourCoordination = Eval::ClassicalEval::piece_coordination(pos, us);
+        int theirCoordination = Eval::ClassicalEval::piece_coordination(pos, them);
         coordinationScore = (ourCoordination - theirCoordination) * phase / 256;
     }
 
     // Defensive resources
     int defenseScore = 0;
     if (use_classical_defense()) {
-        int ourDefense = ClassicalEval::defensive_resources(pos, us);
-        int theirDefense = ClassicalEval::defensive_resources(pos, them);
+        int ourDefense = Eval::ClassicalEval::defensive_resources(pos, us);
+        int theirDefense = Eval::ClassicalEval::defensive_resources(pos, them);
         defenseScore = (ourDefense - theirDefense) * (256 - phase) / 256;
     }
 
     // Positional sacrifices
     int sacrificeScore = 0;
     if (use_classical_sacrifice()) {
-        sacrificeScore = ClassicalEval::positional_sacrifice(pos, us);
+        sacrificeScore = Eval::ClassicalEval::positional_sacrifice(pos, us);
     }
 
     // Advantage conversion (winning technique)
     int conversionScore = 0;
     if (use_classical_conversion()) {
-        conversionScore = ClassicalEval::advantage_conversion(pos, us);
+        conversionScore = Eval::ClassicalEval::advantage_conversion(pos, us);
     }
 
     // Combine classical terms
@@ -220,7 +220,7 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
     // Classical evaluation breakdown
     Color us = pos.side_to_move();
     Color them = ~us;
-    int phase = ClassicalEval::game_phase(pos);
+    int phase = Eval::ClassicalEval::game_phase(pos);
 
     ss << "\n--- Classical Evaluation Terms ---\n";
     ss << "Game phase: " << phase << "/256\n";
@@ -233,31 +233,31 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
     ss << "Conversion: " << (use_classical_conversion() ? "ON" : "OFF") << "\n";
 
     if (use_classical_king_safety()) {
-        int ourKingSafety = ClassicalEval::king_safety(pos, us);
-        int theirKingSafety = ClassicalEval::king_safety(pos, them);
+        int ourKingSafety = Eval::ClassicalEval::king_safety(pos, us);
+        int theirKingSafety = Eval::ClassicalEval::king_safety(pos, them);
         ss << "King safety (us): " << ourKingSafety << " (them): " << theirKingSafety << "\n";
     }
     if (use_classical_initiative()) {
-        int ourInitiative = ClassicalEval::initiative(pos, us);
-        int theirInitiative = ClassicalEval::initiative(pos, them);
+        int ourInitiative = Eval::ClassicalEval::initiative(pos, us);
+        int theirInitiative = Eval::ClassicalEval::initiative(pos, them);
         ss << "Initiative (us): " << ourInitiative << " (them): " << theirInitiative << "\n";
     }
     if (use_classical_coordination()) {
-        int ourCoord = ClassicalEval::piece_coordination(pos, us);
-        int theirCoord = ClassicalEval::piece_coordination(pos, them);
+        int ourCoord = Eval::ClassicalEval::piece_coordination(pos, us);
+        int theirCoord = Eval::ClassicalEval::piece_coordination(pos, them);
         ss << "Piece coordination (us): " << ourCoord << " (them): " << theirCoord << "\n";
     }
     if (use_classical_defense()) {
-        int ourDef = ClassicalEval::defensive_resources(pos, us);
-        int theirDef = ClassicalEval::defensive_resources(pos, them);
+        int ourDef = Eval::ClassicalEval::defensive_resources(pos, us);
+        int theirDef = Eval::ClassicalEval::defensive_resources(pos, them);
         ss << "Defensive resources (us): " << ourDef << " (them): " << theirDef << "\n";
     }
     if (use_classical_sacrifice()) {
-        int sacScore = ClassicalEval::positional_sacrifice(pos, us);
+        int sacScore = Eval::ClassicalEval::positional_sacrifice(pos, us);
         ss << "Positional sacrifice: " << sacScore << "\n";
     }
     if (use_classical_conversion()) {
-        int convScore = ClassicalEval::advantage_conversion(pos, us);
+        int convScore = Eval::ClassicalEval::advantage_conversion(pos, us);
         ss << "Advantage conversion: " << convScore << "\n";
     }
 
@@ -265,7 +265,7 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
 }
 
 // Classical evaluation implementation
-namespace Stockfish::ClassicalEval {
+namespace Stockfish::Eval::ClassicalEval {
 
 // King safety evaluation - assesses king exposure and pawn shelter
 int king_safety(const Position& pos, Color us) {
@@ -907,6 +907,6 @@ int piece_activity(const Position& pos, Color us) {
     return score;
 }
 
-}  // namespace Stockfish::ClassicalEval
+}  // namespace Stockfish::Eval::ClassicalEval
 
 }  // namespace Stockfish
