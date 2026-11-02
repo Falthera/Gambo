@@ -37,38 +37,6 @@
 
 namespace Stockfish {
 
-// Forward declarations for classical evaluation terms
-namespace ClassicalEval {
-
-// King safety evaluation - assesses king exposure and pawn shelter
-int king_safety(const Position& pos, Color us);
-
-// Initiative and attacking potential - measures attacking chances
-int initiative(const Position& pos, Color us);
-
-// Piece coordination - evaluates piece harmony, outposts, batteries
-int piece_coordination(const Position& pos, Color us);
-
-// Defensive resources - identifies fortresses, counterplay, defensive cohesion
-int defensive_resources(const Position& pos, Color us);
-
-// Positional sacrifice evaluation - compensation for material given up
-int positional_sacrifice(const Position& pos, Color us);
-
-// Advantage conversion - winning technique, simplification, endgame technique
-int advantage_conversion(const Position& pos, Color us);
-
-// Phase assessment - returns game phase [0..256] (0=endgame, 256=opening)
-int game_phase(const Position& pos);
-
-// Pawn structure evaluation - passed pawns, weaknesses, islands
-int pawn_structure(const Position& pos, Color us);
-
-// Piece activity - mobility, centralization, scope
-int piece_activity(const Position& pos, Color us);
-
-}  // namespace ClassicalEval
-
 // Classical evaluation component toggles (for ablation testing)
 // Default ON to preserve current behavior
 inline bool use_classical_king_safety() {
