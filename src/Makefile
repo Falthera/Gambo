@@ -900,7 +900,9 @@ ifeq ($(debug),no)
 # GCC on some systems.
 	else ifeq ($(comp),gcc)
 		ifeq ($(gccisclang),)
-			CXXFLAGS += -flto -flto-partition=one
+			# Use -flto=auto for parallel LTO (recommended for GCC 11+)
+			# Avoid -flto-partition=one which serializes LTO and causes slowdowns in PGO
+			CXXFLAGS += -flto=auto
 			LDFLAGS += $(CXXFLAGS) -flto=jobserver
 		else
 			CXXFLAGS += -flto=full
@@ -910,7 +912,7 @@ ifeq ($(debug),no)
 # To use LTO and static linking on Windows,
 # the tool chain requires gcc version 10.1 or later.
 	else ifeq ($(comp),mingw)
-		CXXFLAGS += -flto -flto-partition=one
+		CXXFLAGS += -flto=auto
 		LDFLAGS += $(CXXFLAGS) -save-temps
 	endif
 endif
