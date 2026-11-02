@@ -1,11 +1,11 @@
 # GAMBO 2.0 Progress Report - November 2, 2026
 
-## Current Status: 🔧 PHASE 1 COMPLETE, PHASE 2 INTEGRATION AUDIT COMPLETE (Static Analysis)
+## Current Status: 🔧 PHASE 1 COMPLETE, PHASE 2 INTEGRATION AUDIT COMPLETE, VALIDATION PLAN READY
 
 ### Phase 1: Search & Tactical Improvements - IMPLEMENTED
 ### Phase 2: Classical Evaluation Components - IMPLEMENTED (with defects fixed via static analysis)
 
-**Files Modified**: `src/evaluate.cpp` (7 confirmed defects fixed), `GAMBO2_PHASE2_AUDIT.md` (created)
+**Files Modified**: `src/evaluate.cpp` (7 confirmed defects fixed), `GAMBO2_PHASE2_AUDIT.md` (created), `GAMBO2_PHASE2_VALIDATION_PLAN.md` (created)
 
 ---
 
@@ -55,6 +55,26 @@
 
 ---
 
+## Validation Plan Created: `GAMBO2_PHASE2_VALIDATION_PLAN.md`
+
+### Ablation Testing Strategy
+- **9 configurations**: FULL, 6 single-ablations, NONE (pure NNUE+phase)
+- **Baselines**: GAMBO_BASE (`d2bd4ee` Phase 1), GAMBO_P2_FULL (`123dfbb` audit commit)
+- **UCI options** for runtime enable/disable (no recompilation)
+- **Primary test**: 2000 games/pairing at 10+0.1s bullet
+- **Secondary**: tactical suites (STS, WAC, LCT2), endgame TB probes
+- **Statistical**: Bayeselo with 95% CI; retain if CI > +5 Elo
+
+### Decision Criteria for Phase 3
+Phase 3 authorized ONLY if:
+1. ≥3 of 6 components show clear positive contribution
+2. FULL beats BASE by ≥10 Elo (95% CI)
+3. No catastrophic double-counting (eval inflation without Elo gain)
+4. NPS overhead < 10%
+5. No tactical/endgame regression
+
+---
+
 ## Updated Project Status
 
 ### ✅ Phase 1 Complete (6 Major Improvements)
@@ -70,6 +90,7 @@
 - **7 critical defects fixed** via static analysis
 - **Double-counting risk identified** — requires empirical validation
 - **Computational overhead quantified** — optimization opportunities documented
+- **Validation plan documented** — ready for execution on testing machine
 
 ### ⏳ Phase 2 NNUE Feature Sets - Implemented (from prior work)
 - KingSafety, PieceCoordination feature sets added to NNUE architecture
@@ -78,9 +99,19 @@
 
 ---
 
-## Unverified / Requires Runtime Validation
+## Next Steps (Source-Level Preparation for Testing Machine)
 
-**All changes remain static source modifications only — no compilation or testing performed.**
+### ✅ Completed:
+- [x] Add UCI options to `uci.cpp` for 6 classical components (default ON)
+- [x] Add globalOptions pointer in `uci.h`/`uci.cpp`
+- [x] Modify `evaluate.cpp` to check UCI options before computing each component
+- [x] Modify `Eval::trace()` to show component enable/disable status
+- [x] Verify default behavior unchanged (all options ON)
+- [x] Commit validation prep changes (`f093cc2`)
+
+### Remaining (on Testing Machine):
+- [ ] Build release binary on testing machine
+- [ ] Run validation plan experiments
 
 ### Critical Validation Required Before Phase 3:
 1. **Compile verification** — confirm all fixes compile cleanly
@@ -103,6 +134,7 @@
 
 ## Documentation
 - **Phase 2 Audit**: `GAMBO2_PHASE2_AUDIT.md` (comprehensive static analysis)
+- **Phase 2 Validation Plan**: `GAMBO2_PHASE2_VALIDATION_PLAN.md` (ablation methodology)
 - **Phase 1 Audit**: `GAMBO2_TECHNICAL_AUDIT.md`
 - **CI/CD**: `.github/workflows/gambo-release.yml`
 
@@ -113,6 +145,8 @@
 ✅ **Phase 1 Complete** — 6 major search/tactical improvements  
 ✅ **Phase 2 Classical Components** — Implemented with **7 defects fixed** via static analysis  
 ⚠️ **Phase 2 Integration Risk** — NNUE double-counting **not resolved**; requires empirical validation  
-📋 **Documentation Complete** — Audit reports created  
+📋 **Validation Plan Complete** — `GAMBO2_PHASE2_VALIDATION_PLAN.md` ready for execution  
+🔧 **Validation Infrastructure Ready** — UCI ablation options implemented (`f093cc2`)  
+🔒 **Phase 2 Frozen** — No further heuristics or weight changes until validation  
 
-**Engine Status:** Phase 2 classical evaluation audited and source-corrected. **Do not proceed to Phase 3** until runtime validation confirms classical terms provide net positive signal beyond NNUE.
+**Engine Status:** Phase 2 classical evaluation audited, source-corrected, and validation infrastructure implemented. **Do not proceed to Phase 3** until empirical evidence justifies it.
