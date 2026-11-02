@@ -56,7 +56,7 @@ int defensive_resources(const Position& pos, Color us);
 int positional_sacrifice(const Position& pos, Color us);
 
 // Advantage conversion - winning technique, simplification, endgame technique
-int advantage_conversion(const Position& pos, Color us, int material);
+int advantage_conversion(const Position& pos, Color us);
 
 // Phase assessment - returns game phase [0..256] (0=endgame, 256=opening)
 int game_phase(const Position& pos);
@@ -172,7 +172,7 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
     // Advantage conversion (winning technique)
     int conversionScore = 0;
     if (use_classical_conversion()) {
-        conversionScore = ClassicalEval::advantage_conversion(pos, us, material);
+        conversionScore = ClassicalEval::advantage_conversion(pos, us);
     }
 
     // Combine classical terms
@@ -290,7 +290,7 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
         ss << "Positional sacrifice: " << sacScore << "\n";
     }
     if (use_classical_conversion()) {
-        int convScore = ClassicalEval::advantage_conversion(pos, us, material);
+        int convScore = ClassicalEval::advantage_conversion(pos, us);
         ss << "Advantage conversion: " << convScore << "\n";
     }
 
@@ -372,7 +372,6 @@ int king_safety(const Position& pos, Color us) {
 int initiative(const Position& pos, Color us) {
     const Color them = ~us;
     const Square theirKing = pos.square<KING>(them);
-    const Square ourKing = pos.square<KING>(us);
     const Bitboard theirKingZone = attacks_bb<KING>(theirKing) | square_bb(theirKing);
 
     // Our attacking pressure on enemy king
@@ -601,8 +600,13 @@ int defensive_resources(const Position& pos, Color us) {
             enemyPassedPawns |= square_bb(p);
         }
     }
-    // Our pieces blockading passed pawns
-    Bitboard ourBlockaders = pos.pieces(us) & pos.attackers_to(enemyPassedPawns);
+    // Our pieces blockading passed pawns - collect attackers for each passed pawn
+    Bitboard ourBlockaders = 0;
+    Bitboard passedCopy = enemyPassedPawns;
+    while (passedCopy) {
+        Square p = pop_lsb(passedCopy);
+        ourBlockaders |= pos.attackers_to(p) & pos.pieces(us);
+    }
     score += popcount(ourBlockaders) * 12;
 
     // 3. Counterplay potential: our pieces have active roles
@@ -662,7 +666,6 @@ int defensive_resources(const Position& pos, Color us) {
 int positional_sacrifice(const Position& pos, Color us) {
     const Color them = ~us;
     const Square theirKing = pos.square<KING>(them);
-    const Square ourKing = pos.square<KING>(us);
 
     // King safety compensation - enemy king exposure
     const Bitboard enemyKingZone = attacks_bb<KING>(theirKing) | square_bb(theirKing);
@@ -702,7 +705,7 @@ int positional_sacrifice(const Position& pos, Color us) {
 }
 
 // Advantage conversion - winning technique, simplification, endgame technique
-int advantage_conversion(const Position& pos, Color us, int material) {
+int advantage_conversion(const Position& pos, Color us) {
     const Color them = ~us;
     int score = 0;
 
@@ -739,7 +742,6 @@ int advantage_conversion(const Position& pos, Color us, int material) {
     }
 
     // 3. Passed pawn creation and support
-    Bitboard ourPassedPawns = 0;
     Bitboard ourPawns = pos.pieces(us, PAWN);
     Bitboard pawnsCopy = ourPawns;
     while (pawnsCopy) {
