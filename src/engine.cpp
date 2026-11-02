@@ -127,6 +127,14 @@ Engine::Engine(std::optional<std::string> path) :
                     return std::nullopt;
                 }));
 
+    // Classical evaluation component toggles (for ablation testing)
+    options.add("Classical.KingSafety", Option(true));
+    options.add("Classical.Initiative", Option(true));
+    options.add("Classical.Coordination", Option(true));
+    options.add("Classical.Defense", Option(true));
+    options.add("Classical.Sacrifice", Option(true));
+    options.add("Classical.Conversion", Option(true));
+
     options.add(  //
       "SyzygyPath", Option("", [](const Option& o) {
           Tablebases::init(o);

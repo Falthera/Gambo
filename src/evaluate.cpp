@@ -69,6 +69,27 @@ int piece_activity(const Position& pos, Color us);
 
 }  // namespace ClassicalEval
 
+// Classical evaluation component toggles (for ablation testing)
+// Default ON to preserve current behavior
+inline bool use_classical_king_safety() {
+    return globalOptions ? (*globalOptions)["Classical.KingSafety"] : true;
+}
+inline bool use_classical_initiative() {
+    return globalOptions ? (*globalOptions)["Classical.Initiative"] : true;
+}
+inline bool use_classical_coordination() {
+    return globalOptions ? (*globalOptions)["Classical.Coordination"] : true;
+}
+inline bool use_classical_defense() {
+    return globalOptions ? (*globalOptions)["Classical.Defense"] : true;
+}
+inline bool use_classical_sacrifice() {
+    return globalOptions ? (*globalOptions)["Classical.Sacrifice"] : true;
+}
+inline bool use_classical_conversion() {
+    return globalOptions ? (*globalOptions)["Classical.Conversion"] : true;
+}
+
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
 // This is the OBJECTIVE evaluation, without any style bias.
@@ -102,30 +123,48 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
     int material = 534 * pos.count<PAWN>() + pos.non_pawn_material();
 
     // King safety (both sides)
-    int ourKingSafety = ClassicalEval::king_safety(pos, us);
-    int theirKingSafety = ClassicalEval::king_safety(pos, them);
-    int kingSafetyScore = (ourKingSafety - theirKingSafety) * (256 - phase) / 256; // More important in middlegame
+    int kingSafetyScore = 0;
+    if (use_classical_king_safety()) {
+        int ourKingSafety = ClassicalEval::king_safety(pos, us);
+        int theirKingSafety = ClassicalEval::king_safety(pos, them);
+        kingSafetyScore = (ourKingSafety - theirKingSafety) * (256 - phase) / 256;
+    }
 
     // Initiative and attacking potential
-    int ourInitiative = ClassicalEval::initiative(pos, us);
-    int theirInitiative = ClassicalEval::initiative(pos, them);
-    int initiativeScore = (ourInitiative - theirInitiative) * phase / 256; // More important in opening/middlegame
+    int initiativeScore = 0;
+    if (use_classical_initiative()) {
+        int ourInitiative = ClassicalEval::initiative(pos, us);
+        int theirInitiative = ClassicalEval::initiative(pos, them);
+        initiativeScore = (ourInitiative - theirInitiative) * phase / 256;
+    }
 
     // Piece coordination
-    int ourCoordination = ClassicalEval::piece_coordination(pos, us);
-    int theirCoordination = ClassicalEval::piece_coordination(pos, them);
-    int coordinationScore = (ourCoordination - theirCoordination) * phase / 256;
+    int coordinationScore = 0;
+    if (use_classical_coordination()) {
+        int ourCoordination = ClassicalEval::piece_coordination(pos, us);
+        int theirCoordination = ClassicalEval::piece_coordination(pos, them);
+        coordinationScore = (ourCoordination - theirCoordination) * phase / 256;
+    }
 
     // Defensive resources
-    int ourDefense = ClassicalEval::defensive_resources(pos, us);
-    int theirDefense = ClassicalEval::defensive_resources(pos, them);
-    int defenseScore = (ourDefense - theirDefense) * (256 - phase) / 256;
+    int defenseScore = 0;
+    if (use_classical_defense()) {
+        int ourDefense = ClassicalEval::defensive_resources(pos, us);
+        int theirDefense = ClassicalEval::defensive_resources(pos, them);
+        defenseScore = (ourDefense - theirDefense) * (256 - phase) / 256;
+    }
 
     // Positional sacrifices
-    int sacrificeScore = ClassicalEval::positional_sacrifice(pos, us);
+    int sacrificeScore = 0;
+    if (use_classical_sacrifice()) {
+        sacrificeScore = ClassicalEval::positional_sacrifice(pos, us);
+    }
 
     // Advantage conversion (winning technique)
-    int conversionScore = ClassicalEval::advantage_conversion(pos, us, material);
+    int conversionScore = 0;
+    if (use_classical_conversion()) {
+        conversionScore = ClassicalEval::advantage_conversion(pos, us, material);
+    }
 
     // Combine classical terms
     int classicalScore = kingSafetyScore + initiativeScore + coordinationScore
@@ -209,28 +248,41 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
 
     ss << "\n--- Classical Evaluation Terms ---\n";
     ss << "Game phase: " << phase << "/256\n";
+    ss << "KingSafety: " << (use_classical_king_safety() ? "ON" : "OFF") << "\n";
+    ss << "Initiative: " << (use_classical_initiative() ? "ON" : "OFF") << "\n";
+    ss << "Coordination: " << (use_classical_coordination() ? "ON" : "OFF") << "\n";
+    ss << "Defense: " << (use_classical_defense() ? "ON" : "OFF") << "\n";
+    ss << "Sacrifice: " << (use_classical_sacrifice() ? "ON" : "OFF") << "\n";
+    ss << "Conversion: " << (use_classical_conversion() ? "ON" : "OFF") << "\n";
 
-    int ourKingSafety = ClassicalEval::king_safety(pos, us);
-    int theirKingSafety = ClassicalEval::king_safety(pos, them);
-    ss << "King safety (us): " << ourKingSafety << " (them): " << theirKingSafety << "\n";
-
-    int ourInitiative = ClassicalEval::initiative(pos, us);
-    int theirInitiative = ClassicalEval::initiative(pos, them);
-    ss << "Initiative (us): " << ourInitiative << " (them): " << theirInitiative << "\n";
-
-    int ourCoord = ClassicalEval::piece_coordination(pos, us);
-    int theirCoord = ClassicalEval::piece_coordination(pos, them);
-    ss << "Piece coordination (us): " << ourCoord << " (them): " << theirCoord << "\n";
-
-    int ourDef = ClassicalEval::defensive_resources(pos, us);
-    int theirDef = ClassicalEval::defensive_resources(pos, them);
-    ss << "Defensive resources (us): " << ourDef << " (them): " << theirDef << "\n";
-
-    int sacScore = ClassicalEval::positional_sacrifice(pos, us);
-    ss << "Positional sacrifice: " << sacScore << "\n";
-
-    int convScore = ClassicalEval::advantage_conversion(pos, us, material);
-    ss << "Advantage conversion: " << convScore << "\n";
+    if (use_classical_king_safety()) {
+        int ourKingSafety = ClassicalEval::king_safety(pos, us);
+        int theirKingSafety = ClassicalEval::king_safety(pos, them);
+        ss << "King safety (us): " << ourKingSafety << " (them): " << theirKingSafety << "\n";
+    }
+    if (use_classical_initiative()) {
+        int ourInitiative = ClassicalEval::initiative(pos, us);
+        int theirInitiative = ClassicalEval::initiative(pos, them);
+        ss << "Initiative (us): " << ourInitiative << " (them): " << theirInitiative << "\n";
+    }
+    if (use_classical_coordination()) {
+        int ourCoord = ClassicalEval::piece_coordination(pos, us);
+        int theirCoord = ClassicalEval::piece_coordination(pos, them);
+        ss << "Piece coordination (us): " << ourCoord << " (them): " << theirCoord << "\n";
+    }
+    if (use_classical_defense()) {
+        int ourDef = ClassicalEval::defensive_resources(pos, us);
+        int theirDef = ClassicalEval::defensive_resources(pos, them);
+        ss << "Defensive resources (us): " << ourDef << " (them): " << theirDef << "\n";
+    }
+    if (use_classical_sacrifice()) {
+        int sacScore = ClassicalEval::positional_sacrifice(pos, us);
+        ss << "Positional sacrifice: " << sacScore << "\n";
+    }
+    if (use_classical_conversion()) {
+        int convScore = ClassicalEval::advantage_conversion(pos, us, material);
+        ss << "Advantage conversion: " << convScore << "\n";
+    }
 
     return ss.str();
 }

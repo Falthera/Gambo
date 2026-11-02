@@ -38,6 +38,10 @@ using Value = int;
 
 constexpr auto StartFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
+// Global options pointer for cross-module access (e.g., evaluation components)
+class OptionsMap;
+extern OptionsMap* globalOptions;
+
 class UCIEngine {
    public:
     UCIEngine(int argc, char** argv);

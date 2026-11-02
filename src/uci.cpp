@@ -44,6 +44,8 @@ namespace Stockfish {
 
 constexpr auto BenchmarkCommand = "speedtest";
 
+OptionsMap* globalOptions = nullptr;
+
 template<typename... Ts>
 struct overload: Ts... {
     using Ts::operator()...;
@@ -67,6 +69,8 @@ void UCIEngine::print_info_string(std::string_view str) {
 UCIEngine::UCIEngine(int argc, char** argv) :
     engine(argv[0]),
     cli(argc, argv) {
+
+    globalOptions = &engine.get_options();
 
     engine.get_options().add_info_listener([](const std::optional<std::string>& str) {
         if (str.has_value())
