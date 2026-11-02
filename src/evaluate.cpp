@@ -253,7 +253,6 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
     Color us = pos.side_to_move();
     Color them = ~us;
     int phase = ClassicalEval::game_phase(pos);
-    int material = 534 * pos.count<PAWN>() + pos.non_pawn_material();
 
     ss << "\n--- Classical Evaluation Terms ---\n";
     ss << "Game phase: " << phase << "/256\n";
@@ -742,6 +741,7 @@ int advantage_conversion(const Position& pos, Color us) {
     }
 
     // 3. Passed pawn creation and support
+    Bitboard ourPassedPawns = 0;
     Bitboard ourPawns = pos.pieces(us, PAWN);
     Bitboard pawnsCopy = ourPawns;
     while (pawnsCopy) {
