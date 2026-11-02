@@ -31,6 +31,10 @@ jobs:
         with:
           version: 11
 
+      - name: Install coreutils (for timeout on macOS)
+        if: runner.os == 'macOS'
+        run: brew install coreutils
+
       - name: Download the used network from the fishtest framework
         run: |
           echo "Downloading network..."
@@ -129,6 +133,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Install coreutils (for timeout on macOS)
+        if: runner.os == 'macOS'
+        run: brew install coreutils
+
       - name: Download the used network from the fishtest framework
         run: |
           echo "Downloading network..."
@@ -139,7 +147,7 @@ jobs:
       - name: Build release binary
         run: |
           make clean
-          timeout 600 make -j4 profile-build ARCH=x86-64-bmi2 COMP=clang EXE=gambi || (echo "Build timed out" && exit 1)
+          gtimeout 600 make -j4 profile-build ARCH=x86-64-bmi2 COMP=clang EXE=gambi || (echo "Build timed out" && exit 1)
           make strip ARCH=x86-64-bmi2 COMP=clang EXE=gambi
           mv gambi ../gambo-macos-x86-64-bmi2
 
