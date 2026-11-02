@@ -20,7 +20,7 @@
 
 #include "pawn_pair.h"
 
-#include "../../position.h"
+#include "../../../position.h"
 #include "../nnue_common.h"
 
 namespace Gambo::NNUE::Features {

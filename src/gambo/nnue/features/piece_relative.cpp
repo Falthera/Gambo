@@ -20,8 +20,8 @@
 
 #include "piece_relative.h"
 
-#include "../../position.h"
-#include "../../bitboard.h"
+#include "../../../position.h"
+#include "../../../bitboard.h"
 #include "../nnue_common.h"
 
 namespace Gambo::NNUE::Features {

@@ -21,7 +21,7 @@
 
 #include "king_relative.h"
 
-#include "../../position.h"
+#include "../../../position.h"
 #include "../nnue_common.h"
 
 namespace Gambo::NNUE::Features {

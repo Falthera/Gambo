@@ -20,7 +20,7 @@
 
 #include "threat_detection.h"
 
-#include "../../position.h"
+#include "../../../position.h"
 #include "../nnue_common.h"
 
 namespace Gambo::NNUE::Features {
