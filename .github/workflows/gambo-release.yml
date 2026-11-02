@@ -51,18 +51,18 @@ jobs:
           ls -la gambi
           cp gambi ../gambo-linux-x86-64-bmi2
 
-      - name: Package release files
+- name: Package release files
         run: |
           cd ..
           mkdir gambi-release
-          cp gambi-linux-x86-64-bmi2 gambi-release/
+          cp gambo-linux-x86-64-bmi2 gambi-release/
           cp README.md gambi-release/
           cp Copying.txt gambi-release/
           cp AUTHORS gambi-release/
           cp CITATION.cff gambi-release/
           cp "Top CPU Contributors.txt" gambi-release/
           cp CONTRIBUTING.md gambi-release/
-          tar -czf gambi-linux-x86-64-bmi2.tar.gz gambi-release
+          tar -czf gambo-linux-x86-64-bmi2.tar.gz gambi-release
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -163,14 +163,14 @@ jobs:
         run: |
           cd ..
           mkdir gambi-release
-          cp gambi-macos-x86-64-bmi2 gambi-release/
+          cp gambo-macos-x86-64-bmi2 gambi-release/
           cp README.md gambi-release/
           cp Copying.txt gambi-release/
           cp AUTHORS gambi-release/
           cp CITATION.cff gambi-release/
           cp "Top CPU Contributors.txt" gambi-release/
           cp CONTRIBUTING.md gambi-release/
-          tar -czf gambi-macos-x86-64-bmi2.tar.gz gambi-release
+          tar -czf gambo-macos-x86-64-bmi2.tar.gz gambi-release
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
