@@ -74,7 +74,12 @@ public:
 
     // Get a list of indices for recently changed features
     static void append_changed_indices(
-      Color perspective, Square ksq, const DiffType& diff, IndexList& removed, IndexList& added);
+        Color perspective, Square ksq, const DiffType& diff, IndexList& removed, IndexList& added);
+
+    // Extended version for incremental updates with feature weights
+    static void append_changed_indices(
+        Color perspective, Square ksq, const DiffType& diff, IndexList& removed, IndexList& added,
+        const IndexType* pfBase, IndexType pfStride);
 
     // Returns whether the change stored in this DirtyPiece means
     // that a full accumulator refresh is required.
