@@ -27,6 +27,7 @@
 
 #include "nnue_common.h"
 #include "architecture.h"
+#include "../../nnue/nnue_accumulator.h"
 
 namespace Gambo::NNUE {
 
@@ -51,9 +52,9 @@ public:
     bool save(std::ostream& stream) const;
     
     // Main evaluation function - compatible with Stockfish interface
-    NetworkOutput evaluate(const Position&           pos,
-                           AccumulatorStack&         accumulatorStack,
-                           AccumulatorCaches&        cache) const;
+    NetworkOutput evaluate(const Position&                       pos,
+                           Stockfish::Eval::NNUE::AccumulatorStack&         accumulatorStack,
+                           Stockfish::Eval::NNUE::AccumulatorCaches&        cache) const;
     
     // Verify network compatibility
     bool verify(const std::string& path) const;

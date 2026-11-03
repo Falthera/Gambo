@@ -170,9 +170,9 @@ bool Network::save(std::ostream& stream) const {
     return architecture.write_parameters(stream);
 }
 
-NetworkOutput Network::evaluate(const Position&           pos,
-                                AccumulatorStack&         /*accumulatorStack*/,
-                                AccumulatorCaches&        /*cache*/) const {
+NetworkOutput Network::evaluate(const Position&                       pos,
+                                Stockfish::Eval::NNUE::AccumulatorStack&         /*accumulatorStack*/,
+                                Stockfish::Eval::NNUE::AccumulatorCaches&        /*cache*/) const {
     // Extract features
     extract_features(pos, transformedFeatures);
     
