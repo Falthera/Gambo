@@ -151,5 +151,55 @@ AccumulatorStack::mut_accumulators() noexcept {
 
     if constexpr (std::is_same_v<T, PieceCoordFeatureSet>)
         return piece_coord_accumulators;
+template<typename T>
+std::array<AccumulatorState<T>, AccumulatorStack::MaxSize>&
+AccumulatorStack::mut_accumulators() noexcept {
+    static_assert(std::is_same_v<T, PSQFeatureSet> || std::is_same_v<T, ThreatFeatureSet>
+                  || std::is_same_v<T, KingSafetyFeatureSet> || std::is_same_v<T, PieceCoordFeatureSet>,
+                  "Invalid Feature Set Type");
+
+    if constexpr (std::is_same_v<T, PSQFeatureSet>)
+        return psq_accumulators;
+
+    if constexpr (std::is_same_v<T, ThreatFeatureSet>)
+        return threat_accumulators;
+
+    if constexpr (std::is_same_v<T, KingSafetyFeatureSet>)
+        return king_safety_accumulators;
+
+    if constexpr (std::is_same_v<T, PieceCoordFeatureSet>)
+        return piece_coord_accumulators;
 }
+}  // namespace Stockfish::Eval::NNUE
+
+// Explicit template instantiations
+namespace Stockfish::Eval::NNUE {
+
+template <> const AccumulatorState<PSQFeatureSet>&           AccumulatorStack::latest<PSQFeatureSet>() const noexcept;
+template <> const AccumulatorState<ThreatFeatureSet>&        AccumulatorStack::latest<ThreatFeatureSet>() const noexcept;
+template <> const AccumulatorState<KingSafetyFeatureSet>&    AccumulatorStack::latest<KingSafetyFeatureSet>() const noexcept;
+template <> const AccumulatorState<PieceCoordFeatureSet>&    AccumulatorStack::latest<PieceCoordFeatureSet>() const noexcept;
+
+template <> AccumulatorState<PSQFeatureSet>&    AccumulatorStack::mut_latest<PSQFeatureSet>() noexcept;
+template <> AccumulatorState<ThreatFeatureSet>& AccumulatorStack::mut_latest<ThreatFeatureSet>() noexcept;
+template <> AccumulatorState<KingSafetyFeatureSet>& AccumulatorStack::mut_latest<KingSafetyFeatureSet>() noexcept;
+template <> AccumulatorState<PieceCoordFeatureSet>& AccumulatorStack::mut_latest<PieceCoordFeatureSet>() noexcept;
+
+template <> const std::array<AccumulatorState<PSQFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::accumulators<PSQFeatureSet>() const noexcept;
+template <> const std::array<AccumulatorState<ThreatFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::accumulators<ThreatFeatureSet>() const noexcept;
+template <> const std::array<AccumulatorState<KingSafetyFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::accumulators<KingSafetyFeatureSet>() const noexcept;
+template <> const std::array<AccumulatorState<PieceCoordFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::accumulators<PieceCoordFeatureSet>() const noexcept;
+
+template <> std::array<AccumulatorState<PSQFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::mut_accumulators<PSQFeatureSet>() noexcept;
+template <> std::array<AccumulatorState<ThreatFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::mut_accumulators<ThreatFeatureSet>() noexcept;
+template <> std::array<AccumulatorState<KingSafetyFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::mut_accumulators<KingSafetyFeatureSet>() noexcept;
+template <> std::array<AccumulatorState<PieceCoordFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::mut_accumulators<PieceCoordFeatureSet>() noexcept;
 }  // namespace Stockfish::Eval::NNUE
