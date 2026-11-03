@@ -22,6 +22,8 @@
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
+#include <climits>
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -38,6 +40,17 @@
 #include "gambo/nnue/nnue_common.h"
 
 namespace Stockfish {
+
+// Debug helper to clamp classical evaluation terms to reasonable bounds
+inline int clamp_classical_term(int v, const char* termName) {
+    constexpr int MAX_CLASSICAL_TERM = 5000; // Sanity bound: no single term should exceed this
+    if (v < -MAX_CLASSICAL_TERM || v > MAX_CLASSICAL_TERM) {
+        // In debug builds, assert to catch anomalies; in release, clamp silently
+        assert(false && "Classical evaluation term exceeds sanity bounds");
+        return std::clamp(v, -MAX_CLASSICAL_TERM, MAX_CLASSICAL_TERM);
+    }
+    return v;
+}
 
 // Classical evaluation component toggles (for ablation testing)
 // Default ON to preserve current behavior
@@ -193,12 +206,18 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
 
     // Scale classical evaluation by material (less important in endgames)
     int classicalWeight = std::clamp(material / 800, 0, 64);
-    classicalScore = classicalScore * classicalWeight / 64;
+    // Use int64_t to prevent overflow
+    int64_t classicalScore64 = static_cast<int64_t>(classicalScore) * classicalWeight;
+    classicalScore64 /= 64;
+    int classicalScoreScaled = static_cast<int>(std::clamp<int64_t>(classicalScore64, -32000, 32000));
 
     // Final evaluation: blend NNUE with classical terms
     // NNUE provides the base, classical terms provide positional corrections
-    int v = (nnue * (77871 + material) + optimism * (7191 + material)) / 77871;
-    v += classicalScore;
+    // Use int64_t for intermediate to prevent overflow (nnue up to ~30000, material up to ~12000)
+    int64_t v64 = (int64_t)nnue * (77871 + material) + (int64_t)optimism * (7191 + material);
+    v64 /= 77871;
+    int v = static_cast<int>(std::clamp<int64_t>(v64, INT_MIN / 2, INT_MAX / 2));
+    v += classicalScoreScaled;
 
     // Damp down the evaluation linearly when shuffling
     // Slightly reduced dampening (199->210) to encourage winning play over draws
@@ -376,7 +395,7 @@ int king_safety(const Position& pos, Color us) {
         else if (kingSq == SQ_C8) safety += 10; // Queenside castle
     }
 
-    return safety;
+    return clamp_classical_term(safety, "king_safety");
 }
 
 // Initiative and attacking potential - measures attacking chances
@@ -435,7 +454,7 @@ int initiative(const Position& pos, Color us) {
                         + activeMinors * 8
                         + developmentLead * 5;
 
-    return initiativeScore;
+    return clamp_classical_term(initiativeScore, "initiative");
 }
 
 // Piece coordination - evaluates piece harmony, outposts, batteries
@@ -567,7 +586,7 @@ int piece_coordination(const Position& pos, Color us) {
         }
     }
 
-    return score;
+    return clamp_classical_term(score, "piece_coordination");
 }
 
 // Defensive resources - identifies fortresses, counterplay, defensive cohesion
@@ -668,7 +687,7 @@ int defensive_resources(const Position& pos, Color us) {
         }
     }
 
-    return score;
+    return clamp_classical_term(score, "defensive_resources");
 }
 
 // Positional sacrifice evaluation - compensation for material given up
@@ -797,7 +816,7 @@ int advantage_conversion(const Position& pos, Color us) {
         score += 10;
     }
 
-    return score;
+    return clamp_classical_term(score, "advantage_conversion");
 }
 
 // Phase assessment - returns game phase [0..256] (0=endgame, 256=opening)
