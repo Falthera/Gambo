@@ -149,6 +149,21 @@ using PieceToHistory = Stats<std::int16_t, 30000, PIECE_NB, SQUARE_NB>;
 // PieceToHistory instead of ButterflyBoards.
 using ContinuationHistory = MultiArray<PieceToHistory, PIECE_NB, SQUARE_NB>;
 
+// TMIHH — Threat-Map Indexed History Heuristic
+// Indexed by [threat_category][piece][to] where threat_category encodes
+// king safety, piece attacks, and tactical pressure context
+constexpr int THREAT_CATEGORIES = 8;  // 0=none, 1=king_ring, 2=check, 3=slider, 4=knight_fork, 5=pin, 6=discovered, 7=multiple
+using ThreatMapHistory = Stats<std::int16_t, 30000, THREAT_CATEGORIES, PIECE_NB, SQUARE_NB>;
+
+// CICH — Colour-Indexed Continuation History
+// Extends continuation history with explicit side-to-move awareness
+// Indexed by [prev_color][current_color][prev_piece][prev_to][piece][to]
+using ColourContinuationHistory = MultiArray<PieceToHistory, COLOR_NB, COLOR_NB, PIECE_NB, SQUARE_NB>;
+
+// MPCH — Multi-Ply Continuation History (2-ply)
+// Indexed by [prev2_piece][prev2_to][prev1_piece][prev1_to][piece][to]
+using MultiPlyContinuationHistory = MultiArray<PieceToHistory, PIECE_NB, SQUARE_NB, PIECE_NB, SQUARE_NB>;
+
 // PawnHistory is addressed by the pawn structure and a move's [piece][to]
 using PawnHistory =
   DynStats<AtomicStats<std::int16_t, 8192, PIECE_NB, SQUARE_NB>, PAWN_HISTORY_BASE_SIZE>;
@@ -222,10 +237,16 @@ using TTMoveHistory = StatsEntry<std::int16_t, 8192>;
 struct SharedHistories {
     SharedHistories(size_t threadCount) :
         correctionHistory(threadCount),
-        pawnHistory(threadCount) {
+        pawnHistory(threadCount),
+        threatMapHistory(threadCount),
+        colourContinuationHistory(threadCount),
+        multiPlyContinuationHistory(threadCount) {
         assert((threadCount & (threadCount - 1)) == 0 && threadCount != 0);
-        sizeMinus1         = correctionHistory.get_size() - 1;
-        pawnHistSizeMinus1 = pawnHistory.get_size() - 1;
+        sizeMinus1                    = correctionHistory.get_size() - 1;
+        pawnHistSizeMinus1            = pawnHistory.get_size() - 1;
+        threatMapHistSizeMinus1       = threatMapHistory.get_size() - 1;
+        colourContinuationHistSizeMinus1 = colourContinuationHistory.get_size() - 1;
+        multiPlyContinuationHistSizeMinus1 = multiPlyContinuationHistory.get_size() - 1;
     }
 
     size_t get_size() const { return sizeMinus1 + 1; }
@@ -260,12 +281,35 @@ struct SharedHistories {
         return correctionHistory[pos.non_pawn_key(c) & sizeMinus1];
     }
 
+    auto& threat_map_entry(const Position& pos) {
+        return threatMapHistory[pos.pawn_key() & threatMapHistSizeMinus1];
+    }
+    const auto& threat_map_entry(const Position& pos) const {
+        return threatMapHistory[pos.pawn_key() & threatMapHistSizeMinus1];
+    }
+
+    auto& colour_continuation_entry(const Position& pos) {
+        return colourContinuationHistory[pos.pawn_key() & colourContinuationHistSizeMinus1];
+    }
+    const auto& colour_continuation_entry(const Position& pos) const {
+        return colourContinuationHistory[pos.pawn_key() & colourContinuationHistSizeMinus1];
+    }
+
+    auto& multi_ply_continuation_entry(const Position& pos) {
+        return multiPlyContinuationHistory[pos.pawn_key() & multiPlyContinuationHistSizeMinus1];
+    }
+    const auto& multi_ply_continuation_entry(const Position& pos) const {
+        return multiPlyContinuationHistory[pos.pawn_key() & multiPlyContinuationHistSizeMinus1];
+    }
+
     UnifiedCorrectionHistory correctionHistory;
     PawnHistory              pawnHistory;
+    ThreatMapHistory         threatMapHistory;
+    ColourContinuationHistory colourContinuationHistory;
+    MultiPlyContinuationHistory multiPlyContinuationHistory;
 
-
-   private:
-    size_t sizeMinus1, pawnHistSizeMinus1;
+private:
+    size_t sizeMinus1, pawnHistSizeMinus1, threatMapHistSizeMinus1, colourContinuationHistSizeMinus1, multiPlyContinuationHistSizeMinus1;
 };
 
 }  // namespace Stockfish

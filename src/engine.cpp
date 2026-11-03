@@ -149,6 +149,11 @@ Engine::Engine(std::optional<std::string> path) :
     // Blend weight for Stockfish+Gambo blend mode (0-100, Stockfish weight)
     options.add("Eval.NNUEBlendWeight", Option(50, 0, 100));
 
+    // Tier 1: Advanced Search History Options
+    options.add("GAMBO.ThreatMapHistory", Option(true));
+    options.add("GAMBO.ColourContinuationHistory", Option(true));
+    options.add("GAMBO.MultiPlyContinuationHistory", Option(false));
+
     options.add(  //
       "SyzygyPath", Option("", [](const Option& o) {
           Tablebases::init(o);

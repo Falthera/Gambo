@@ -68,6 +68,8 @@ struct Stack {
     PVMoves*                    pv;
     PieceToHistory*             continuationHistory;
     CorrectionHistory<PieceTo>* continuationCorrectionHistory;
+    ThreatMapHistory*           threatMapHistory;
+    ColourContinuationHistory*  colourContinuationHistory;
     int                         ply;
     Move                        currentMove;
     Move                        excludedMove;
@@ -203,6 +205,79 @@ inline int tactical_volatility(const Position& pos, Color us) {
     const int material  = int(pos.non_pawn_material(us) + pos.non_pawn_material(~us));
     const int imbalance = int(pos.non_pawn_material(us) - pos.non_pawn_material(~us));
     return std::max(0, attack / 4 + material / 1800 - (imbalance >= 0 ? imbalance : -imbalance) / 220);
+}
+
+// TMIHH — Threat-Map Indexed History Heuristic
+// Returns a threat category [0..7] for the current position and move:
+// 0 = no significant threat
+// 1 = king ring attack (attacking enemy king zone)
+// 2 = checking move
+// 3 = slider attack (rook/bishop/queen on open line)
+// 4 = knight fork threat
+// 5 = pin
+// 6 = discovered attack
+// 7 = multiple simultaneous threats
+inline int threat_category(const Position& pos, Color us, Move m, const Stack* ss) {
+    const Color them = ~us;
+    const Square theirKing = pos.square<KING>(them);
+    const Square ourKing   = pos.square<KING>(us);
+    const Square from = m.from_sq();
+    const Square to   = m.to_sq();
+    const Piece pc = m.moved_piece();
+    const PieceType pt = type_of(pc);
+
+    // Category 2: Checking move (highest priority for tactical relevance)
+    if (pos.gives_check(m, pos.checkers()))
+        return 2;
+
+    // Category 1: King ring attack
+    const Bitboard kingRing = attacks_bb<KING>(theirKing) | square_bb(theirKing);
+    if (attacks_bb(pc, to, pos.pieces()) & kingRing)
+        return 1;
+
+    // Category 3: Slider attack on open line
+    if (pt == ROOK || pt == BISHOP || pt == QUEEN) {
+        Bitboard sliderAttacks = attacks_bb(pt, to, pos.pieces());
+        if (sliderAttacks & pos.pieces(them))
+            return 3;
+    }
+
+    // Category 4: Knight fork threat
+    if (pt == KNIGHT) {
+        Bitboard knightAttacks = attacks_bb<KNIGHT>(to);
+        if (popcount(knightAttacks & pos.pieces(them, ROOK, BISHOP, QUEEN, KING)) >= 2)
+            return 4;
+    }
+
+    // Category 5: Pin
+    if (pt == BISHOP || pt == ROOK || pt == QUEEN) {
+        Bitboard line = attacks_bb(pt, to, pos.pieces());
+        if (line & pos.pieces(them, KING)) {
+            // Check if there's a piece between attacker and king that could be pinned
+            Bitboard between = line & pos.pieces();
+            if (between)
+                return 5;
+        }
+    }
+
+    // Category 6: Discovered attack
+    if (ss && ss->ply > 0) {
+        const Move prevMove = (ss - 1)->currentMove;
+        if (prevMove != Move::none()) {
+            // If previous move was a piece move that uncovered an attack
+            Square prevFrom = prevMove.from_sq();
+            Square prevTo   = prevMove.to_sq();
+            if (attacks_bb(pos.piece_on(prevTo), prevTo, pos.pieces()) & pos.pieces(them, KING))
+                return 6;
+        }
+    }
+
+    // Category 7: Multiple threats (simplified - check if attack pressure is high)
+    const int attackPressure = attack_pressure(pos, us);
+    if (attackPressure > 16)
+        return 7;
+
+    return 0; // No significant threat
 }
 
 // Compensation detection for sacrifices.

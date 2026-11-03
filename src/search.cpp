@@ -288,6 +288,8 @@ bool Search::Worker::iterative_deepening() {
         (ss - i)->continuationHistory =
           &continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
         (ss - i)->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
+        (ss - i)->threatMapHistory = &sharedHistories.begin()->second.threat_map_entry(rootPos);
+        (ss - i)->colourContinuationHistory = &sharedHistories.begin()->second.colour_continuation_entry(rootPos);
         (ss - i)->staticEval                    = VALUE_NONE;
     }
 
@@ -1543,6 +1545,17 @@ moves_loop:  // When in check, search starts here
         Piece capturedPiece = pos.captured_piece();
         assert(capturedPiece != NO_PIECE);
         captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)] << 901;
+
+        // TMIHH for capture moves
+        if (use_threat_map_history())
+        {
+            int tcat = threat_category(pos, pos.side_to_move(), Move::from_squares(prevSq, prevSq, pos.piece_on(prevSq)), ss);
+            if (tcat > 0)
+            {
+                auto& tmihhEntry = workerThread.sharedHistory.threat_map_entry(pos)[tcat][pos.piece_on(prevSq)][prevSq];
+                tmihhEntry << 901;
+            }
+        }
     }
 
     if (PvNode)
@@ -1931,6 +1944,17 @@ void update_all_stats(const Position& pos,
         // Increase stats for the best move in case it was a capture move
         capturedPiece = type_of(pos.piece_on(bestMove.to_sq()));
         captureHistory[movedPiece][bestMove.to_sq()][capturedPiece] << bonus * 1366 / 1024;
+
+        // TMIHH for best capture move
+        if (use_threat_map_history())
+        {
+            int tcat = threat_category(pos, pos.side_to_move(), bestMove, ss);
+            if (tcat > 0)
+            {
+                auto& tmihhEntry = workerThread.sharedHistory.threat_map_entry(pos)[tcat][movedPiece][bestMove.to_sq()];
+                tmihhEntry << bonus * 1366 / 1024;
+            }
+        }
     }
 
     // Extra penalty for a quiet early move that was not a TT move in
@@ -1944,6 +1968,17 @@ void update_all_stats(const Position& pos,
         movedPiece    = pos.moved_piece(move);
         capturedPiece = type_of(pos.piece_on(move.to_sq()));
         captureHistory[movedPiece][move.to_sq()][capturedPiece] << -malus * 1518 / 1024;
+
+        // TMIHH for refuted capture moves
+        if (use_threat_map_history())
+        {
+            int tcat = threat_category(pos, pos.side_to_move(), move, ss);
+            if (tcat > 0)
+            {
+                auto& tmihhEntry = workerThread.sharedHistory.threat_map_entry(pos)[tcat][movedPiece][move.to_sq()];
+                tmihhEntry << -malus * 1518 / 1024;
+            }
+        }
     }
 }
 
@@ -1974,6 +2009,45 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
             historyEntry << (bonus * weight * multiplier / 131072) + 71 * (i < 2);
         }
     }
+
+    // CICH — Colour-Indexed Continuation History
+    if (use_colour_continuation_history())
+    {
+        Color us = (ss - 1)->currentMove.is_ok() ? pos.side_to_move() : Color(0); // Simplified
+        for (int i = 1; i <= 4; ++i)
+        {
+            if (((ss - i)->currentMove).is_ok())
+            {
+                Piece prevPc = pos.piece_on(((ss - i)->currentMove).from_sq());
+                Square prevTo = ((ss - i)->currentMove).to_sq();
+                if (prevPc != NO_PIECE)
+                {
+                    auto& cichEntry = (*(ss - i)->colourContinuationHistory)[us][~us][prevPc][prevTo][pc][to];
+                    cichEntry << (bonus * 512 / 1024);
+                }
+            }
+        }
+    }
+
+    // MPCH — Multi-Ply Continuation History (2-ply)
+    if (use_multi_ply_continuation_history())
+    {
+        for (int i = 2; i <= 3; ++i)
+        {
+            if (((ss - i)->currentMove).is_ok() && ((ss - i - 1)->currentMove).is_ok())
+            {
+                Piece prev2Pc = pos.piece_on(((ss - i)->currentMove).from_sq());
+                Square prev2To = ((ss - i)->currentMove).to_sq();
+                Piece prev1Pc = pos.piece_on(((ss - i - 1)->currentMove).from_sq());
+                Square prev1To = ((ss - i - 1)->currentMove).to_sq();
+                if (prev2Pc != NO_PIECE && prev1Pc != NO_PIECE)
+                {
+                    auto& mpchEntry = (*(ss - i)->colourContinuationHistory)[prev2Pc][prev2To][prev1Pc][prev1To][pc][to];
+                    mpchEntry << (bonus * 256 / 1024);
+                }
+            }
+        }
+    }
 }
 
 // Updates move sorting heuristics
@@ -1991,6 +2065,19 @@ void update_quiet_histories(
 
     workerThread.sharedHistory.pawn_entry(pos)[pos.moved_piece(move)][move.to_sq()]
       << bonus * (bonus > -7 ? 1038 : 525) / 1024;
+
+    // TMIHH — Threat-Map Indexed History Heuristic
+    if (use_threat_map_history())
+    {
+        int tcat = threat_category(pos, us, move, ss);
+        if (tcat > 0)
+        {
+            Piece pc = pos.moved_piece(move);
+            Square to = move.to_sq();
+            auto& tmihhEntry = workerThread.sharedHistory.threat_map_entry(pos)[tcat][pc][to];
+            tmihhEntry << bonus * 1024 / 1024;
+        }
+    }
 }
 }
 

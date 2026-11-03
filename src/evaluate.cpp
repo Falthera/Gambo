@@ -92,6 +92,17 @@ inline int gambod_nnue_blend_weight() {
     return int((*globalOptions)["Eval.NNUEBlendWeight"]);
 }
 
+// Tier 1: Advanced Search History Options
+inline bool use_threat_map_history() {
+    return globalOptions ? bool((*globalOptions)["GAMBO.ThreatMapHistory"]) : true;
+}
+inline bool use_colour_continuation_history() {
+    return globalOptions ? bool((*globalOptions)["GAMBO.ColourContinuationHistory"]) : true;
+}
+inline bool use_multi_ply_continuation_history() {
+    return globalOptions ? bool((*globalOptions)["GAMBO.MultiPlyContinuationHistory"]) : false;
+}
+
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
 // This is the OBJECTIVE evaluation, without any style bias.
