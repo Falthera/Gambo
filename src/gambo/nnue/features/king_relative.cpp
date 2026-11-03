@@ -28,36 +28,6 @@ namespace Gambo::NNUE::Features {
 
 IndexType KingRelative::make_index(Color perspective, Square king_sq,
                                    Square piece_sq, Piece piece) {
-    // King bucket (0-31)
-    const IndexType king_bucket = KingBuckets[king_sq];
-    
-    // Piece-square index (0-639 for 10 piece types * 64 squares)
-    // PieceSquareIndex[perspective][piece] gives base offset
-    const IndexType psq_idx = PieceSquareIndex[perspective][piece];
-    const IndexType piece_sq_rel = orient(perspective, piece_sq);
-    
-    // Index = king_bucket * 1280 + psq_idx * 64 + piece_sq_rel
-    // Wait: 40960 / 32 king_buckets = 1280 per bucket
-    // 10 piece types * 64 squares = 640, but with symmetry = 320? No.
-    // Let's use: king_bucket * 1280 + piece_sq_index
-    // 1280 = 10 piece types * 64 squares / 2 (symmetry?) 
-    // Actually: 10 piece types * 64 squares = 640, but with king symmetry
-    // For HalfKAv2_hm: 64 king squares * 10 piece types * 64 squares / 2 = 20480
-    // But we have 40960, so 2x that. Maybe we don't divide by 2?
-    
-    // Let's use: Dimensions = 40960 = 64 king squares * 640
-    // 640 = 10 piece types * 64 squares
-    // Per king bucket: 640
-    // Index = king_bucket * 640 + piece_index * 64 + square
-    // king_bucket is 0-63 (not 0-31!)
-    
-    // Actually our KingBuckets has 64 entries mapped to 0-31 buckets
-    // But for KingRelative we want both kings, so 64 buckets
-    
-    // Let me use a simpler mapping:
-    // 40960 = 64 king_squares * 10 piece_types * 64 squares
-    // Index = (king_sq * 10 + piece_type) * 64 + piece_sq
-    
     const Color piece_color = color_of(piece);
     const PieceType pt = type_of(piece);
     
@@ -76,11 +46,6 @@ IndexType KingRelative::make_index(Color perspective, Square king_sq,
     const IndexType king_idx = king_sq;  // 0-63
     
     return (king_idx * 10 + pt_idx) * 64 + piece_sq_rel;
-}
-
-// Orient square according to perspective
-Square KingRelative::orient(Color perspective, Square s) {
-    return (perspective == WHITE) ? s : Square(63 - s);
 }
 
 void KingRelative::append_active_indices(Color perspective, const Position& pos, IndexList& active) {

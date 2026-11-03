@@ -80,11 +80,6 @@ IndexType ThreatDetection::make_index(Color perspective, Piece attacker, Square 
     return ((att_idx * 10 + tgt_idx) * 64 + from) * 64 + to;
 }
 
-// Orient square according to perspective
-Square ThreatDetection::orient(Color perspective, Square s) {
-    return (perspective == WHITE) ? s : Square(63 - s);
-}
-
 void ThreatDetection::append_active_indices(Color perspective, const Position& pos, IndexList& active) {
     const Color us = perspective;
     const Color them = ~perspective;
