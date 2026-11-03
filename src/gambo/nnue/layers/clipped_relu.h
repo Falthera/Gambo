@@ -34,8 +34,8 @@ public:
     using OutputType = int16_t;
     using OutputBuffer = ValueList<OutputType, Size>;
     
-    void propagate(const typename AffineTransformSparseInput<TransformedFeatureDimensions, 63>::OutputBuffer& input,
-                   OutputBuffer& output) const;
+    // Forward propagation - input is treated as array of OutputType
+    void propagate(const OutputType* input, OutputBuffer& output) const;
 };
 
 }  // namespace Gambo::NNUE::Layers

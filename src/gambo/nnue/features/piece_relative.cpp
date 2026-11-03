@@ -104,8 +104,8 @@ void PieceRelative::append_active_indices(Color perspective, const Position& pos
         Bitboard pawn_attacks = attacks_bb(make_piece(perspective, PAWN), p, pos.pieces());
         Bitboard protected_pawns = our_pawns & pawn_attacks;
         while (protected_pawns) {
-            Square protected = pop_lsb(protected_pawns);
-            IndexType idx = make_index(COORD_PAWN_CHAIN, p, protected, perspective);
+            Square protected_sq = pop_lsb(protected_pawns);
+            IndexType idx = make_index(COORD_PAWN_CHAIN, p, protected_sq, perspective);
             if (active.size() < MaxActiveDimensions) active.push_back(idx);
         }
     }
@@ -115,7 +115,7 @@ void PieceRelative::append_active_indices(Color perspective, const Position& pos
     while (our_rooks) {
         Square r = pop_lsb(our_rooks);
         File f = file_of(r);
-        if (!(all_pawns & FileBB[f])) {
+        if (!(all_pawns & file_bb(f))) {
             IndexType idx = make_index(COORD_ROOK_OPEN_FILE, r, r, perspective);
             if (active.size() < MaxActiveDimensions) active.push_back(idx);
         }

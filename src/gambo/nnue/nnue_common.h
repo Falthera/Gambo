@@ -125,6 +125,9 @@ constexpr int L1 = 1024;        // Transformed feature dimensions
 constexpr int L2 = 31;          // FC0 output per half
 constexpr int L3 = 32;          // FC1 output
 
+// Alias for layer compatibility
+constexpr int TransformedFeatureDimensions = L1;
+
 }  // namespace Gambo::NNUE
 
 #endif  // GAMBO_NNUE_COMMON_H_INCLUDED

@@ -41,7 +41,8 @@ public:
     bool read_parameters(std::istream& stream);
     bool write_parameters(std::ostream& stream) const;
     
-    void propagate(const typename ClippedReLU<62>::OutputBuffer& input, OutputBuffer& output) const;
+    // Dense forward propagation - input is treated as array of OutputType
+    void propagate(const OutputType* input, OutputBuffer& output) const;
 };
 
 }  // namespace Gambo::NNUE::Layers

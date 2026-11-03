@@ -48,7 +48,7 @@ bool AffineTransform<InputDimensions, OutputDimensions>::read_parameters(std::is
     return true;
 }
 
-template<IndexType InputDimensions, int OutputDimensions>
+template<int InputDimensions, int OutputDimensions>
 bool AffineTransform<InputDimensions, OutputDimensions>::write_parameters(std::ostream& stream) const {
     for (int i = 0; i < OutputDimensions; ++i) {
         for (int j = 0; j < InputDimensions; ++j) {
@@ -61,7 +61,7 @@ bool AffineTransform<InputDimensions, OutputDimensions>::write_parameters(std::o
 
 template<int InputDimensions, int OutputDimensions>
 void AffineTransform<InputDimensions, OutputDimensions>::propagate(
-    const typename ClippedReLU<62>::OutputBuffer& input, OutputBuffer& output) const {
+    const OutputType* input, OutputBuffer& output) const {
     for (int i = 0; i < OutputDimensions; ++i) {
         int32_t sum = bias[i];
         for (int j = 0; j < InputDimensions; ++j) {

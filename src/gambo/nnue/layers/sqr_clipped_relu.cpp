@@ -25,7 +25,7 @@
 namespace Gambo::NNUE::Layers {
 
 template<int Size>
-void SqrClippedReLU<Size>::propagate(const typename AffineTransformSparseInput<TransformedFeatureDimensions, 63>::OutputBuffer& input,
+void SqrClippedReLU<Size>::propagate(const OutputType* input,
                                      OutputBuffer& output) const {
     for (int i = 0; i < Size; ++i) {
         int32_t v = input[i];
