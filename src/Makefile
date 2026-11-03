@@ -77,6 +77,7 @@ SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
 	gambo/nnue/layers/affine_transform.cpp gambo/nnue/layers/affine_transform_sparse_input.cpp \
 	gambo/nnue/layers/clipped_relu.cpp gambo/nnue/layers/sqr_clipped_relu.cpp \
 	gambo/nnue/architecture.cpp gambo/nnue/network.cpp \
+	gambo/pce.cpp gambo/sid.cpp \
 	engine.cpp score.cpp memory.cpp
 
 OTHER_SRCS = universal/entry_x86.cpp universal/nnue_embed.cpp
@@ -93,11 +94,11 @@ HEADERS = benchmark.h bitboard.h evaluate.h misc.h movegen.h movepick.h history.
 		gambo/nnue/architecture.h gambo/nnue/nnue_common.h \
 		gambo/nnue/layers/affine_transform.h gambo/nnue/layers/affine_transform_sparse_input.h \
 		gambo/nnue/layers/clipped_relu.h gambo/nnue/layers/sqr_clipped_relu.h \
-		gambo/nnue/network.h
+		gambo/nnue/network.h gambo/pce.h gambo/sid.h
 
 OBJS = $(notdir $(SRCS:.cpp=.o))
 
-VPATH = syzygy:nnue:nnue/features:gambo/nnue:gambo/nnue/features:gambo/nnue/layers
+VPATH = syzygy:nnue:nnue/features:gambo/nnue:gambo/nnue/features:gambo/nnue/layers:gambo
 
 ### ==========================================================================
 ### Section 2. High-level Configuration

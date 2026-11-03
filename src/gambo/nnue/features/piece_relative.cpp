@@ -168,11 +168,131 @@ void PieceRelative::append_active_indices(Color perspective, const Position& pos
 
 void PieceRelative::append_changed_indices(Color perspective, Square ksq,
                                            const DiffType& diff, IndexList& removed, IndexList& added) {
-    // Piece coordination features change when pieces move
-    if (diff.type() == DirtyPiece::Moved || diff.type() == DirtyPiece::Captured ||
-        diff.type() == DirtyPiece::Promoted) {
-        // Simplified: signal refresh for any piece move
-        // Full implementation would track specific coordination changes
+    // INFU: Incremental piece coordination feature updates
+    // Track outposts, pawn chains, rook batteries, rook open files
+    
+    if (diff.type() == DirtyPiece::Moved) {
+        const Piece pc = diff.moved_piece();
+        Square from = diff.from_sq();
+        Square to = diff.to_sq();
+        
+        // 1. Outposts: if knight moves, remove old, add new
+        if (type_of(pc) == KNIGHT) {
+            IndexType old_idx = make_index(COORD_OUTPOST, from, from, perspective);
+            IndexType new_idx = make_index(COORD_OUTPOST, to, to, perspective);
+            if (removed.size() < MaxActiveDimensions) removed.push_back(old_idx);
+            if (added.size() < MaxActiveDimensions) added.push_back(new_idx);
+        }
+        
+        // 2. Pawn chains: if pawn moves, update chains
+        if (type_of(pc) == PAWN) {
+            // Remove old chains involving this pawn
+            Bitboard our_pawns = pos.pieces(perspective, PAWN) | square_bb(from);
+            while (our_pawns) {
+                Square p = pop_lsb(our_pawns);
+                if (p != from) {
+                    Bitboard pawn_attacks = attacks_bb(make_piece(perspective, PAWN), p, pos.pieces());
+                    if (pawn_attacks & square_bb(from) || pawn_attacks & square_bb(to)) {
+                        IndexType old_idx = make_index(COORD_PAWN_CHAIN, p, from, perspective);
+                        IndexType new_idx = make_index(COORD_PAWN_CHAIN, p, to, perspective);
+                        if (removed.size() < MaxActiveDimensions) removed.push_back(old_idx);
+                        if (added.size() < MaxActiveDimensions) added.push_back(new_idx);
+                    }
+                }
+            }
+            
+            // Add new chains
+            our_pawns = pos.pieces(perspective, PAWN);
+            while (our_pawns) {
+                Square p = pop_lsb(our_pawns);
+                Bitboard pawn_attacks = attacks_bb(make_piece(perspective, PAWN), p, pos.pieces());
+                Bitboard protected_pawns = our_pawns & pawn_attacks;
+                while (protected_pawns) {
+                    Square protected_sq = pop_lsb(protected_pawns);
+                    IndexType new_idx = make_index(COORD_PAWN_CHAIN, p, protected_sq, perspective);
+                    if (added.size() < MaxActiveDimensions) added.push_back(new_idx);
+                }
+            }
+        }
+        
+        // 3. Rook batteries: if rook moves, update
+        if (type_of(pc) == ROOK) {
+            Bitboard our_rooks = pos.pieces(perspective, ROOK);
+            while (our_rooks) {
+                Square r = pop_lsb(our_rooks);
+                if (r != from) {
+                    IndexType old_idx = make_index(COORD_ROOK_ROOK, from, r, perspective);
+                    IndexType new_idx = make_index(COORD_ROOK_ROOK, to, r, perspective);
+                    if (removed.size() < MaxActiveDimensions) removed.push_back(old_idx);
+                    if (added.size() < MaxActiveDimensions) added.push_back(new_idx);
+                }
+            }
+        }
+        
+        // 4. Rook open files
+        if (type_of(pc) == ROOK) {
+            Bitboard all_pawns = pos.pieces(PAWN);
+            File f = file_of(from);
+            if (!(all_pawns & file_bb(f))) {
+                IndexType old_idx = make_index(COORD_ROOK_OPEN_FILE, from, from, perspective);
+                if (removed.size() < MaxActiveDimensions) removed.push_back(old_idx);
+            }
+            f = file_of(to);
+            if (!(all_pawns & file_bb(f))) {
+                IndexType new_idx = make_index(COORD_ROOK_OPEN_FILE, to, to, perspective);
+                if (added.size() < MaxActiveDimensions) added.push_back(new_idx);
+            }
+        }
+    }
+    else if (diff.type() == DirtyPiece::Captured) {
+        const Piece pc = diff.captured_piece();
+        Square sq = diff.to_sq();
+        
+        // Remove coordination features involving captured piece
+        if (type_of(pc) == KNIGHT) {
+            IndexType idx = make_index(COORD_OUTPOST, sq, sq, perspective);
+            if (removed.size() < MaxActiveDimensions) removed.push_back(idx);
+        }
+        if (type_of(pc) == ROOK) {
+            Bitboard our_rooks = pos.pieces(perspective, ROOK);
+            while (our_rooks) {
+                Square r = pop_lsb(our_rooks);
+                if (r != sq) {
+                    IndexType idx = make_index(COORD_ROOK_ROOK, sq, r, perspective);
+                    if (removed.size() < MaxActiveDimensions) removed.push_back(idx);
+                }
+            }
+            Bitboard all_pawns = pos.pieces(PAWN);
+            File f = file_of(sq);
+            if (!(all_pawns & file_bb(f))) {
+                IndexType idx = make_index(COORD_ROOK_OPEN_FILE, sq, sq, perspective);
+                if (removed.size() < MaxActiveDimensions) removed.push_back(idx);
+            }
+        }
+        if (type_of(pc) == PAWN) {
+            // Remove pawn chains involving captured pawn
+            Bitboard our_pawns = pos.pieces(perspective, PAWN) | square_bb(sq);
+            while (our_pawns) {
+                Square p = pop_lsb(our_pawns);
+                if (p != sq) {
+                    Bitboard pawn_attacks = attacks_bb(make_piece(perspective, PAWN), p, pos.pieces() | square_bb(sq));
+                    if (pawn_attacks & square_bb(sq)) {
+                        IndexType idx = make_index(COORD_PAWN_CHAIN, p, sq, perspective);
+                        if (removed.size() < MaxActiveDimensions) removed.push_back(idx);
+                    }
+                }
+            }
+        }
+    }
+    else if (diff.type() == DirtyPiece::Promoted) {
+        Square to = diff.to_sq();
+        const Piece pc = diff.moved_piece();
+        
+        // Remove pawn features
+        IndexType old_idx = make_index(COORD_PAWN_CHAIN, to, to, perspective);
+        if (removed.size() < MaxActiveDimensions) removed.push_back(old_idx);
+        
+        // Add promoted piece features (handled by Moved case on next call)
     }
 }
 

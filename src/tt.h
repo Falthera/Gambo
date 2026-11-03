@@ -32,11 +32,14 @@ class ThreadPool;
 struct TTEntry;
 struct Cluster;
 
+// CATT: Cache-Aware Transposition Table
+// Compact TT entry layout option (CTTEL)
+enum class TTLayout { Standard = 0, Compact = 1 };
+
 // There is only one global hash table for the engine and all its threads. For chess in particular, we even allow racy
 // updates between threads to and from the TT, as taking the time to synchronize access would cost thinking time and
 // thus elo. As a hash table, collisions are possible and may cause chess playing issues (bizarre blunders, faulty mate
 // reports, etc). Fixing these also loses elo; however such risk decreases quickly with larger TT size.
-//
 // We clearly separate TTData, a local copy of an entry, from TTWriter, which writes to the global table.
 
 
@@ -95,6 +98,16 @@ class TranspositionTable {
     //   2) a copy of the prior data, if any (may be self-inconsistent due to read races)
     //   3) a writer object to the entry
     std::tuple<bool, TTData, TTWriter> probe(const Key key) const;
+    
+    // SMP: Scheduled Memory Prefetching
+    // Prefetch TT entry for a given key
+    void prefetch(const Key key) const;
+    
+    // CATT: Cache-Aware Transposition Table
+    // Set/get compact TT layout
+    void set_layout(TTLayout layout);
+    TTLayout get_layout() const;
+
     // The hash function; its only external use is memory prefetching
     TTEntry* first_entry(const Key key) const;
 
@@ -103,6 +116,7 @@ class TranspositionTable {
 
     size_t   clusterCount;
     Cluster* table = nullptr;
+    TTLayout currentLayout = TTLayout::Standard;
 
     uint8_t generation8 = 0;
 };

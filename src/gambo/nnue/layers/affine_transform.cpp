@@ -22,6 +22,15 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <algorithm>
+
+#if defined(__AVX2__)
+#include <immintrin.h>
+#elif defined(__SSE4_1__)
+#include <smmintrin.h>
+#elif defined(__SSE2__)
+#include <emmintrin.h>
+#endif
 
 namespace Gambo::NNUE::Layers {
 
@@ -59,9 +68,71 @@ bool AffineTransform<InputDimensions, OutputDimensions>::write_parameters(std::o
     return true;
 }
 
+// SONI: SIMD-Optimised NNUE Inference
 template<int InputDimensions, int OutputDimensions>
 void AffineTransform<InputDimensions, OutputDimensions>::propagate(
     const OutputType* input, OutputBuffer& output) const {
+    
+#if defined(__AVX2__) && defined(GAMBO_USE_SIMD)
+    // AVX2 implementation: process 8 elements at a time
+    constexpr int SIMD_WIDTH = 8;
+    for (int i = 0; i < OutputDimensions; ++i) {
+        int32_t sum = bias[i];
+        int j = 0;
+        
+        // Vectorized accumulation
+        __m256i vsum = _mm256_setzero_si256();
+        for (; j + SIMD_WIDTH <= InputDimensions; j += SIMD_WIDTH) {
+            __m256i vinput = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&input[j]));
+            __m256i vweights = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&weights[j][i]));
+            // PMADDWD: multiply pairs of 16-bit integers, sum adjacent pairs to 32-bit
+            __m256i vprod = _mm256_madd_epi16(vinput, vweights);
+            vsum = _mm256_add_epi32(vsum, vprod);
+        }
+        
+        // Horizontal sum
+        __m128i vsum_low = _mm256_castsi256_si128(vsum);
+        __m128i vsum_high = _mm256_extracti128_si256(vsum, 1);
+        __m128i vsum_total = _mm_add_epi32(vsum_low, vsum_high);
+        vsum_total = _mm_hadd_epi32(vsum_total, vsum_total);
+        vsum_total = _mm_hadd_epi32(vsum_total, vsum_total);
+        sum += _mm_cvtsi128_si32(vsum_total);
+        
+        // Scalar remainder
+        for (; j < InputDimensions; ++j) {
+            sum += input[j] * weights[j][i];
+        }
+        
+        output[i] = static_cast<OutputType>(std::clamp(sum, 0, 127));
+    }
+#elif defined(__SSE4_1__) && defined(GAMBO_USE_SIMD)
+    // SSE4.1 implementation: process 4 elements at a time
+    constexpr int SIMD_WIDTH = 4;
+    for (int i = 0; i < OutputDimensions; ++i) {
+        int32_t sum = bias[i];
+        int j = 0;
+        
+        __m128i vsum = _mm_setzero_si128();
+        for (; j + SIMD_WIDTH <= InputDimensions; j += SIMD_WIDTH) {
+            __m128i vinput = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&input[j]));
+            __m128i vweights = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&weights[j][i]));
+            __m128i vprod = _mm_madd_epi16(vinput, vweights);
+            vsum = _mm_add_epi32(vsum, vprod);
+        }
+        
+        // Horizontal sum
+        vsum = _mm_hadd_epi32(vsum, vsum);
+        vsum = _mm_hadd_epi32(vsum, vsum);
+        sum += _mm_cvtsi128_si32(vsum);
+        
+        for (; j < InputDimensions; ++j) {
+            sum += input[j] * weights[j][i];
+        }
+        
+        output[i] = static_cast<OutputType>(std::clamp(sum, 0, 127));
+    }
+#else
+    // Scalar fallback
     for (int i = 0; i < OutputDimensions; ++i) {
         int32_t sum = bias[i];
         for (int j = 0; j < InputDimensions; ++j) {
@@ -69,9 +140,9 @@ void AffineTransform<InputDimensions, OutputDimensions>::propagate(
         }
         output[i] = static_cast<OutputType>(std::clamp(sum, 0, 127));
     }
+#endif
 }
 
-// Explicit template instantiations
 template class AffineTransform<62, 32>;
 template class AffineTransform<32, 1>;
 

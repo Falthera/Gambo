@@ -135,11 +135,47 @@ void ThreatDetection::append_active_indices(Color perspective, const Position& p
 void ThreatDetection::append_changed_indices(Color perspective, Square ksq,
                                              const DiffType& diff, IndexList& removed, IndexList& added,
                                              FusedUpdateData* fd, bool first) {
+    // INFU: Incremental threat detection feature updates
     // Threat features change when pieces move or are captured
-    // This is complex - simplified implementation signals refresh for piece moves
-    if (diff.type() == DirtyThreats::Moved || diff.type() == DirtyThreats::Captured) {
-        // Would need to track all affected threat relationships
-        // For now, signal refresh needed
+    // Track attacker-target-king triplets that are affected
+    
+    if (diff.type() == DirtyThreats::Moved) {
+        const Piece attacker = diff.moved_piece();
+        Square from = diff.from_sq();
+        Square to = diff.to_sq();
+        
+        // Remove old threats from 'from'
+        Bitboard targets = pos.pieces(~perspective);
+        while (targets) {
+            Square target = pop_lsb(targets);
+            IndexType idx = make_index(perspective, attacker, from, target, pos.piece_on(target), ksq);
+            if (removed.size() < MaxActiveDimensions) removed.push_back(idx);
+        }
+        
+        // Add new threats from 'to'
+        Bitboard new_targets = pos.attacks_by(type_of(attacker), to, pos.pieces()) & pos.pieces(~perspective);
+        while (new_targets) {
+            Square target = pop_lsb(new_targets);
+            IndexType idx = make_index(perspective, attacker, to, target, pos.piece_on(target), ksq);
+            if (added.size() < MaxActiveDimensions) added.push_back(idx);
+        }
+    }
+    else if (diff.type() == DirtyThreats::Captured) {
+        const Piece target = diff.captured_piece();
+        Square sq = diff.to_sq();
+        
+        // Remove all threats targeting the captured piece
+        Bitboard attackers = pos.attacks_by<PAWN>(perspective) | pos.attacks_by<KNIGHT>(perspective)
+                           | pos.attacks_by<BISHOP>(perspective) | pos.attacks_by<ROOK>(perspective)
+                           | pos.attacks_by<QUEEN>(perspective) | pos.attacks_by<KING>(perspective);
+        while (attackers) {
+            Square att = pop_lsb(attackers);
+            Piece attacker = pos.piece_on(att);
+            if (attacks_bb(attacker, att, pos.pieces()) & square_bb(sq)) {
+                IndexType idx = make_index(perspective, attacker, att, sq, target, ksq);
+                if (removed.size() < MaxActiveDimensions) removed.push_back(idx);
+            }
+        }
     }
 }
 

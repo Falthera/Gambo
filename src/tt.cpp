@@ -240,4 +240,26 @@ TTEntry* TranspositionTable::first_entry(const Key key) const {
     return &table[mul_hi64(key, clusterCount)].entry[0];
 }
 
+// SMP: Scheduled Memory Prefetching
+// Prefetch TT entry for a given key
+void TranspositionTable::prefetch(const Key key) const {
+    TTEntry* const tte = first_entry(key);
+#if defined(_MSC_VER)
+    _mm_prefetch(reinterpret_cast<const char*>(tte), _MM_HINT_T0);
+#elif defined(__GNUC__) || defined(__clang__)
+    __builtin_prefetch(tte, 0, 3);
+#endif
+}
+
+// CATT: Cache-Aware Transposition Table
+// Set/get compact TT layout
+void TranspositionTable::set_layout(TTLayout layout) {
+    currentLayout = layout;
+    // Note: Layout change requires table resize to take effect
+}
+
+TTLayout TranspositionTable::get_layout() const {
+    return currentLayout;
+}
+
 }  // namespace Stockfish

@@ -337,20 +337,91 @@ void PawnPair::append_active_indices(Color perspective, const Position& pos, Ind
 // Populate changed feature indices after a move
 void PawnPair::append_changed_indices(Color perspective, Square ksq,
                                       const DiffType& diff, IndexList& removed, IndexList& added) {
-    // For pawn moves, we need to:
-    // 1. Remove old pawn-pair features involving the moved pawn
-    // 2. Add new pawn-pair features with new position
-    // This is a simplified implementation - full implementation would track
-    // all affected pawn pairs
+    // INFU: Incremental NNUE Feature Update for pawn pairs
+    // Track pawn moves, captures, promotions, en passant
     
-    // For now, mark as requiring refresh for pawn moves
     if (diff.type() == DirtyPiece::Moved) {
         const Piece pc = diff.moved_piece();
         if (type_of(pc) == PAWN) {
-            // Would need to compute all affected pairs
-            // For now, signal full refresh needed
-            requires_refresh(diff, perspective);
+            Square from = diff.from_sq();
+            Square to = diff.to_sq();
+            
+            // Remove old pawn-pair features involving the moved pawn at 'from'
+            Bitboard other_pawns = pos.pieces(perspective, PAWN) & ~square_bb(to);
+            while (other_pawns) {
+                Square other = pop_lsb(other_pawns);
+                PawnPairType type = detect_pair_type(perspective, pos, from, other);
+                IndexType idx = make_index(perspective, ksq, from, other, type);
+                if (removed.size() < MaxActiveDimensions) removed.push_back(idx);
+            }
+            
+            // Add new pawn-pair features involving the moved pawn at 'to'
+            other_pawns = pos.pieces(perspective, PAWN) & ~square_bb(to);
+            while (other_pawns) {
+                Square other = pop_lsb(other_pawns);
+                PawnPairType type = detect_pair_type(perspective, pos, to, other);
+                IndexType idx = make_index(perspective, ksq, to, other, type);
+                if (added.size() < MaxActiveDimensions) added.push_back(idx);
+            }
+            return;
         }
+    }
+    
+    if (diff.type() == DirtyPiece::Captured) {
+        const Piece pc = diff.captured_piece();
+        if (type_of(pc) == PAWN) {
+            Square sq = diff.to_sq();
+            // Remove all pawn-pair features involving the captured pawn
+            Bitboard other_pawns = pos.pieces(perspective, PAWN) | square_bb(sq);
+            while (other_pawns) {
+                Square other = pop_lsb(other_pawns);
+                if (other != sq) {
+                    PawnPairType type = detect_pair_type(perspective, pos, sq, other);
+                    IndexType idx = make_index(perspective, ksq, sq, other, type);
+                    if (removed.size() < MaxActiveDimensions) removed.push_back(idx);
+                }
+            }
+            return;
+        }
+    }
+    
+    if (diff.type() == DirtyPiece::Promoted) {
+        Square to = diff.to_sq();
+        // Remove pawn features, add promoted piece features (handled by PieceRelative)
+        Bitboard other_pawns = pos.pieces(perspective, PAWN);
+        while (other_pawns) {
+            Square other = pop_lsb(other_pawns);
+            PawnPairType type = detect_pair_type(perspective, pos, to, other);
+            IndexType idx = make_index(perspective, ksq, to, other, type);
+            if (removed.size() < MaxActiveDimensions) removed.push_back(idx);
+        }
+        return;
+    }
+    
+    if (diff.type() == DirtyPiece::EnPassant) {
+        Square ep_sq = diff.to_sq();
+        Square captured_sq = (perspective == WHITE) ? Square(ep_sq - 8) : Square(ep_sq + 8);
+        
+        // Remove captured pawn pairs
+        Bitboard other_pawns = pos.pieces(perspective, PAWN) | square_bb(captured_sq);
+        while (other_pawns) {
+            Square other = pop_lsb(other_pawns);
+            if (other != captured_sq) {
+                PawnPairType type = detect_pair_type(perspective, pos, captured_sq, other);
+                IndexType idx = make_index(perspective, ksq, captured_sq, other, type);
+                if (removed.size() < MaxActiveDimensions) removed.push_back(idx);
+            }
+        }
+        
+        // Add new pawn pairs with moved pawn
+        other_pawns = pos.pieces(perspective, PAWN);
+        while (other_pawns) {
+            Square other = pop_lsb(other_pawns);
+            PawnPairType type = detect_pair_type(perspective, pos, ep_sq, other);
+            IndexType idx = make_index(perspective, ksq, ep_sq, other, type);
+            if (added.size() < MaxActiveDimensions) added.push_back(idx);
+        }
+        return;
     }
 }
 

@@ -49,6 +49,8 @@
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
+#include "gambo/pce.h"
+#include "gambo/sid.h"
 
 namespace Stockfish {
 
@@ -368,6 +370,15 @@ bool Search::Worker::iterative_deepening() {
             // Reset UCI info selDepth for each depth and each PV line
             selDepth = 0;
 
+            // PCE: Position Criticality Engine
+            Gambo::PCE::PositionCriticalityEngine pce;
+            int criticalityScore = pce.evaluate(rootPos, ss, rootDepth);
+            Gambo::PCE::CriticalityLevel criticality = pce.get_level(criticalityScore);
+
+            // SID: Search Instability Detection
+            Gambo::SID::SearchInstabilityDetector sid;
+            sid.reset();
+
             // Reset aspiration window starting size
             delta     = 5 + threadIdx % 8 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 10588;
             Value avg = rootMoves[pvIdx].averageScore;
@@ -390,6 +401,18 @@ bool Search::Worker::iterative_deepening() {
                   std::max(1, rootDepth - failedHighCnt - 3 * (searchAgainCounter + 1) / 4);
                 rootDelta = beta - alpha;
                 bestValue = search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
+
+                // SID: Update instability detector
+                auto sidLevel = sid.update(rootPos, ss, adjustedDepth, bestValue, 
+                                         (pvIdx > 0) ? rootMoves[pvIdx-1].score : VALUE_NONE,
+                                         &rootMoves[pvIdx].pv, 
+                                         (pvIdx > 0) ? &rootMoves[pvIdx-1].pv : nullptr);
+
+                // PCE: Adjust search effort based on criticality
+                if (criticality >= Gambo::PCE::CriticalityLevel::HIGH && !threads.stop) {
+                    // High criticality - increase aspiration window slightly
+                    delta = std::max(delta, 20);
+                }
 
                 // Bring the best move to the front. It is critical that sorting
                 // is done with a stable algorithm because all the values but the
