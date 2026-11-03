@@ -41,6 +41,12 @@ using WeightType = int8_t;
 // Transformed feature type (after feature extraction)
 using TransformedFeatureType = int16_t;
 
+// Index type for feature indices
+using IndexType = uint32_t;
+
+// Value type for feature values
+using ValueType = int16_t;
+
 // Value list for fixed-size arrays
 template<typename T, int Size>
 struct ValueList {
@@ -58,6 +64,10 @@ struct ValueList {
     void clear() { count = 0; }
 };
 
+// Index list type alias (to be specialized by feature sets)
+template<int MaxActiveDimensions>
+using IndexList = ValueList<IndexType, MaxActiveDimensions>;
+
 // Dirty piece for incremental updates
 struct DirtyPiece {
     enum Type { Moved, Captured, Promoted, EnPassant };
@@ -67,6 +77,12 @@ struct DirtyPiece {
     Square from;
     Square to;
     Type type_;
+    
+    // Accessor methods for compatibility
+    Piece moved_piece() const { return piece; }
+    Piece captured_piece() const { return piece; }
+    Square from_sq() const { return from; }
+    Square to_sq() const { return to; }
 };
 
 // Dirty threats for incremental updates
@@ -80,15 +96,14 @@ struct DirtyThreats {
     Piece target;
     Square ksq;
     Type type_;
+    
+    // Accessor methods for compatibility
+    Piece moved_piece() const { return attacker; }
+    Piece captured_piece() const { return target; }
+    Square from_sq() const { return from; }
+    Square to_sq() const { return to; }
+    Square king_sq() const { return ksq; }
 };
-
-// Index list type alias (to be specialized by feature sets)
-template<int MaxActiveDimensions>
-using IndexList = ValueList<IndexType, MaxActiveDimensions>;
-
-// Type aliases for feature sets
-using IndexType = uint32_t;
-using ValueType = int16_t;
 
 // Feature set hash values
 constexpr std::uint32_t PawnPairHash = 0x1F234CB8u;

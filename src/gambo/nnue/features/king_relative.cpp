@@ -108,8 +108,8 @@ void KingRelative::append_changed_indices(Color perspective, Square ksq,
     if (diff.type() == DirtyPiece::Moved) {
         const Piece pc = diff.moved_piece();
         if (type_of(pc) != KING) {
-            Square from = diff.from();
-            Square to = diff.to();
+            Square from = diff.from_sq();
+            Square to = diff.to_sq();
             
             IndexType old_idx = make_index(perspective, ksq, from, pc);
             IndexType new_idx = make_index(perspective, ksq, to, pc);
@@ -121,7 +121,7 @@ void KingRelative::append_changed_indices(Color perspective, Square ksq,
     // For captures: remove captured piece
     else if (diff.type() == DirtyPiece::Captured) {
         const Piece pc = diff.captured_piece();
-        Square sq = diff.to();
+        Square sq = diff.to_sq();
         
         IndexType idx = make_index(perspective, ksq, sq, pc);
         if (removed.size() < MaxActiveDimensions) removed.push_back(idx);
@@ -129,7 +129,7 @@ void KingRelative::append_changed_indices(Color perspective, Square ksq,
     // For promotions: remove pawn, add promoted piece
     else if (diff.type() == DirtyPiece::Promoted) {
         const Piece pc = diff.moved_piece();
-        Square to = diff.to();
+        Square to = diff.to_sq();
         
         IndexType old_idx = make_index(perspective, ksq, to, make_piece(perspective, PAWN));
         IndexType new_idx = make_index(perspective, ksq, to, pc);
@@ -147,6 +147,27 @@ bool KingRelative::requires_refresh(const DiffType& diff, Color perspective) {
     }
     return false;
 }
+
+// King bucket mapping (same as HalfKAv2_hm)
+#define B(v) (v * 32)
+const IndexType KingRelative::KingBuckets[SQUARE_NB] = {
+    B(28), B(29), B(30), B(31), B(31), B(30), B(29), B(28),
+    B(24), B(25), B(26), B(27), B(27), B(26), B(25), B(24),
+    B(20), B(21), B(22), B(23), B(23), B(22), B(21), B(20),
+    B(16), B(17), B(18), B(19), B(19), B(18), B(17), B(16),
+    B(12), B(13), B(14), B(15), B(15), B(14), B(13), B(12),
+    B( 8), B( 9), B(10), B(11), B(11), B(10), B( 9), B( 8),
+    B( 4), B( 5), B( 6), B( 7), B( 7), B( 6), B( 5), B( 4),
+    B( 0), B( 1), B( 2), B( 3), B( 3), B( 2), B( 1), B( 0),
+};
+#undef B
+
+// Piece-square index mapping (11 piece types excluding king)
+// Convention: W - us, B - them (viewed from other side, W and B are reversed)
+const IndexType KingRelative::PieceSquareIndex[COLOR_NB][PIECE_NB] = {
+    {0, 0, 1, 2, 3, 4, 5, 0, 0, 6, 7, 8, 9, 10, 11, 0},
+    {0, 6, 7, 8, 9, 10, 11, 0, 0, 0, 1, 2, 3, 4, 5, 0}
+};
 
 // Orient square according to perspective
 Square KingRelative::orient(Color perspective, Square s) {

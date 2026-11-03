@@ -71,30 +71,13 @@ public:
 
 private:
     // Orient square according to perspective
-    static Square orient(Color perspective, Square s) {
-        return (perspective == WHITE) ? s : Square(64 - 1 - s);
-    }
+    static Square orient(Color perspective, Square s);
 
     // King bucket mapping (same as HalfKAv2_hm)
-#define B(v) (v * 32)
-    static constexpr IndexType KingBuckets[SQUARE_NB] = {
-        B(28), B(29), B(30), B(31), B(31), B(30), B(29), B(28),
-        B(24), B(25), B(26), B(27), B(27), B(26), B(25), B(24),
-        B(20), B(21), B(22), B(23), B(23), B(22), B(21), B(20),
-        B(16), B(17), B(18), B(19), B(19), B(18), B(17), B(16),
-        B(12), B(13), B(14), B(15), B(15), B(14), B(13), B(12),
-        B( 8), B( 9), B(10), B(11), B(11), B(10), B( 9), B( 8),
-        B( 4), B( 5), B( 6), B( 7), B( 7), B( 6), B( 5), B( 4),
-        B( 0), B( 1), B( 2), B( 3), B( 3), B( 2), B( 1), B( 0),
-    };
-#undef B
+    static const IndexType KingBuckets[SQUARE_NB];
 
     // Piece-square index mapping (11 piece types excluding king)
-    static constexpr IndexType PieceSquareIndex[COLOR_NB][PIECE_NB] = {
-        // Convention: W - us, B - them (viewed from other side, W and B are reversed)
-        {0, 0, 1, 2, 3, 4, 5, 0, 0, 6, 7, 8, 9, 10, 11, 0},
-        {0, 6, 7, 8, 9, 10, 11, 0, 0, 0, 1, 2, 3, 4, 5, 0}
-    };
+    static const IndexType PieceSquareIndex[COLOR_NB][PIECE_NB];
 };
 
 }  // namespace Gambo::NNUE::Features

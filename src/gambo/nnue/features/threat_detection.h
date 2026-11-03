@@ -79,31 +79,13 @@ public:
 
 private:
     // Orient square according to perspective
-    static Square orient(Color perspective, Square s) {
-        return (perspective == WHITE) ? s : Square(63 - s);
-    }
+    static Square orient(Color perspective, Square s);
 
     // King bucket mapping
-    static constexpr std::int8_t OrientTBL[SQUARE_NB] = {
-        SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
-        SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
-        SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
-        SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
-        SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
-        SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
-        SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
-        SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
-    };
+    static const std::int8_t OrientTBL[SQUARE_NB];
 
     // Piece type mapping for threats
-    static constexpr int map[PIECE_TYPE_NB-2][PIECE_TYPE_NB-2] = {
-        { 0,  1, -1,  2, -1, -1},
-        { 0,  1,  2,  3,  4, -1},
-        { 0,  1,  2,  3, -1, -1},
-        { 0,  1,  2,  3, -1, -1},
-        { 0,  1,  2,  3, -1, -1},
-        {-1, -1, -1, -1, -1, -1}
-    };
+    static const int map[PIECE_TYPE_NB-2][PIECE_TYPE_NB-2];
 };
 
 }  // namespace Gambo::NNUE::Features

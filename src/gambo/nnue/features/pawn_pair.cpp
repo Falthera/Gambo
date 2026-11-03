@@ -40,8 +40,8 @@ IndexType PawnPair::make_index(Color perspective, Square king_sq,
     const Square pawn1_rel = orient(perspective, pawn1);
     const Square pawn2_rel = orient(perspective, pawn2);
     
-    const IndexType p1 = pawn1_rel & 0x1F;  // 0-31
-    const IndexType p2 = pawn2_rel & 0x1F;  // 0-31
+    const IndexType p1 = static_cast<IndexType>(pawn1_rel) & 0x1Fu;  // 0-31
+    const IndexType p2 = static_cast<IndexType>(pawn2_rel) & 0x1Fu;  // 0-31
     
     // Order pawns for canonical representation (p1 <= p2)
     const IndexType p_low = std::min(p1, p2);
@@ -81,7 +81,7 @@ IndexType PawnPair::make_index(Color perspective, Square king_sq,
 
 // King bucket mapping (same as HalfKAv2_hm)
 #define B(v) (v * 32)
-constexpr IndexType PawnPair::KingBuckets[SQUARE_NB] = {
+const IndexType PawnPair::KingBuckets[SQUARE_NB] = {
     B(28), B(29), B(30), B(31), B(31), B(30), B(29), B(28),
     B(24), B(25), B(26), B(27), B(27), B(26), B(25), B(24),
     B(20), B(21), B(22), B(23), B(23), B(22), B(21), B(20),
@@ -260,7 +260,8 @@ bool PawnPair::is_backward_pawn(Color perspective, const Position& pos, Square s
         
         bool has_advanced_adjacent = false;
         if (f > FILE_A) {
-            for (Rank r2 = r + 1; r2 <= RANK_8; ++r2) {
+            for (int ri = int(r) + 1; ri <= int(RANK_8); ++ri) {
+                Rank r2 = Rank(ri);
                 if (pos.piece_on(make_square(File(int(f)-1), r2)) == make_piece(WHITE, PAWN)) {
                     has_advanced_adjacent = true;
                     break;
@@ -268,7 +269,8 @@ bool PawnPair::is_backward_pawn(Color perspective, const Position& pos, Square s
             }
         }
         if (f < FILE_H) {
-            for (Rank r2 = r + 1; r2 <= RANK_8; ++r2) {
+            for (int ri = int(r) + 1; ri <= int(RANK_8); ++ri) {
+                Rank r2 = Rank(ri);
                 if (pos.piece_on(make_square(File(int(f)+1), r2)) == make_piece(WHITE, PAWN)) {
                     has_advanced_adjacent = true;
                     break;
@@ -281,7 +283,8 @@ bool PawnPair::is_backward_pawn(Color perspective, const Position& pos, Square s
         
         bool has_advanced_adjacent = false;
         if (f > FILE_A) {
-            for (Rank r2 = r - 1; r2 >= RANK_1; --r2) {
+            for (int ri = int(r) - 1; ri >= int(RANK_1); --ri) {
+                Rank r2 = Rank(ri);
                 if (pos.piece_on(make_square(File(int(f)-1), r2)) == make_piece(BLACK, PAWN)) {
                     has_advanced_adjacent = true;
                     break;
@@ -289,7 +292,8 @@ bool PawnPair::is_backward_pawn(Color perspective, const Position& pos, Square s
             }
         }
         if (f < FILE_H) {
-            for (Rank r2 = r - 1; r2 >= RANK_1; --r2) {
+            for (int ri = int(r) - 1; ri >= int(RANK_1); --ri) {
+                Rank r2 = Rank(ri);
                 if (pos.piece_on(make_square(File(int(f)+1), r2)) == make_piece(BLACK, PAWN)) {
                     has_advanced_adjacent = true;
                     break;

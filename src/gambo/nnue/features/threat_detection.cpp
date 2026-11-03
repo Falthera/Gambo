@@ -153,6 +153,28 @@ bool ThreatDetection::requires_refresh(const DiffType& diff, Color perspective) 
     return diff.type() == DirtyThreats::Moved || diff.type() == DirtyThreats::Captured;
 }
 
+// King bucket mapping
+const std::int8_t ThreatDetection::OrientTBL[SQUARE_NB] = {
+    SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
+    SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
+    SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
+    SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
+    SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
+    SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
+    SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
+    SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
+};
+
+// Piece type mapping for threats
+const int ThreatDetection::map[PIECE_TYPE_NB-2][PIECE_TYPE_NB-2] = {
+    { 0,  1, -1,  2, -1, -1},
+    { 0,  1,  2,  3,  4, -1},
+    { 0,  1,  2,  3, -1, -1},
+    { 0,  1,  2,  3, -1, -1},
+    { 0,  1,  2,  3, -1, -1},
+    {-1, -1, -1, -1, -1, -1}
+};
+
 // Orient square according to perspective
 Square ThreatDetection::orient(Color perspective, Square s) {
     return (perspective == WHITE) ? s : Square(63 - s);
