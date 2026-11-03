@@ -36,7 +36,7 @@ namespace Stockfish::Eval::NNUE {
 
 using namespace SIMD;
 
-namespace {
+
 
 template<bool Forward, typename FeatureSet>
 void update_accumulator_incremental(Color                               perspective,
@@ -62,15 +62,13 @@ void update_piece_coord_accumulator_full(Color                                 p
                                          AccumulatorState<PieceCoordFeatureSet>& accumulatorState);
 
 void update_threats_accumulator_full(Color                               perspective,
-                                     const FeatureTransformer&           featureTransformer,
-                                     const Position&                     pos,
-                                     AccumulatorState<ThreatFeatureSet>& accumulatorState);
-}
-
-template<typename T>
+                                      const FeatureTransformer&           featureTransformer,
+                                      const Position&                     pos,
+                                      AccumulatorState<ThreatFeatureSet>& accumulatorState);
+template<bool Forward, typename FeatureSet>
 const AccumulatorState<T>& AccumulatorStack::latest() const noexcept {
     return accumulators<T>()[size - 1];
-}
+}  // namespace
 
 // Explicit template instantiations
 template const AccumulatorState<PSQFeatureSet>&           AccumulatorStack::latest() const noexcept;
@@ -81,7 +79,7 @@ template const AccumulatorState<PieceCoordFeatureSet>&    AccumulatorStack::late
 template<typename T>
 AccumulatorState<T>& AccumulatorStack::mut_latest() noexcept {
     return mut_accumulators<T>()[size - 1];
-}
+}  // namespace
 
 template<typename T>
 const std::array<AccumulatorState<T>, AccumulatorStack::MaxSize>&
@@ -101,7 +99,7 @@ AccumulatorStack::accumulators() const noexcept {
 
     if constexpr (std::is_same_v<T, PieceCoordFeatureSet>)
         return piece_coord_accumulators;
-}
+}  // namespace
 
 template<typename T>
 std::array<AccumulatorState<T>, AccumulatorStack::MaxSize>&
@@ -121,7 +119,7 @@ AccumulatorStack::mut_accumulators() noexcept {
 
     if constexpr (std::is_same_v<T, PieceCoordFeatureSet>)
         return piece_coord_accumulators;
-}
+}  // namespace
 
 void AccumulatorStack::reset() noexcept {
     psq_accumulators[0].reset({});
@@ -129,7 +127,7 @@ void AccumulatorStack::reset() noexcept {
     king_safety_accumulators[0].reset({});
     piece_coord_accumulators[0].reset({});
     size = 1;
-}
+}  // namespace
 
 std::pair<DirtyPiece&, DirtyThreats&> AccumulatorStack::push() noexcept {
     assert(size < MaxSize);
@@ -142,12 +140,12 @@ std::pair<DirtyPiece&, DirtyThreats&> AccumulatorStack::push() noexcept {
     new (&dpc) typename PieceCoordFeatureSet::DiffType;
     size++;
     return {dp, dts};
-}
+}  // namespace
 
 void AccumulatorStack::pop() noexcept {
     assert(size > 1);
     size--;
-}
+}  // namespace
 
 void AccumulatorStack::evaluate(const Position&           pos,
                                 const FeatureTransformer& featureTransformer,
@@ -164,7 +162,7 @@ void AccumulatorStack::evaluate(const Position&           pos,
 
     evaluate_side<PieceCoordFeatureSet>(WHITE, pos, featureTransformer, cache);
     evaluate_side<PieceCoordFeatureSet>(BLACK, pos, featureTransformer, cache);
-}
+}  // namespace
 
 template<typename FeatureSet>
 void AccumulatorStack::evaluate_side(Color                     perspective,
@@ -195,7 +193,7 @@ void AccumulatorStack::evaluate_side(Color                     perspective,
 
         backward_update_incremental<FeatureSet>(perspective, pos, featureTransformer,
                                                 last_usable_accum);
-}
+}  // namespace
 
 void update_king_safety_accumulator_refresh_cache(Color                               perspective,
                                                   const FeatureTransformer&           featureTransformer,
@@ -286,7 +284,7 @@ void update_king_safety_accumulator_refresh_cache(Color                         
     }
 
 #endif
-}
+}  // namespace
 
 void update_piece_coord_accumulator_full(Color                                 perspective,
                                          const FeatureTransformer&              featureTransformer,
@@ -375,9 +373,9 @@ void update_piece_coord_accumulator_full(Color                                 p
     }
 
 #endif
-}
+}  // namespace
 
-}
+}  // namespace
 // Find the earliest usable accumulator, this can either be a computed accumulator or the accumulator
 // state just before a change that requires full refresh.
 template<typename FeatureSet>
@@ -393,7 +391,7 @@ std::size_t AccumulatorStack::find_last_usable_accumulator(Color perspective) co
     }
 
     return 0;
-}
+}  // namespace
 
 template<typename FeatureSet>
 void AccumulatorStack::forward_update_incremental(Color                     perspective,
@@ -414,7 +412,7 @@ void AccumulatorStack::forward_update_incremental(Color                     pers
     }
 
     assert(latest<FeatureSet>().computed[perspective]);
-}
+}  // namespace
 
 template<typename FeatureSet>
 void AccumulatorStack::backward_update_incremental(Color perspective,
@@ -435,9 +433,9 @@ void AccumulatorStack::backward_update_incremental(Color perspective,
                                               accumulators<FeatureSet>()[next + 1]);
 
     assert(accumulators<FeatureSet>()[end].computed[perspective]);
-}
+}  // namespace
 
-namespace {
+
 
 template<typename VectorWrapper,
          IndexType Width,
@@ -454,7 +452,7 @@ void fused_row_reduce(const ElementType* in, ElementType* out, const Ts* const..
     for (IndexType i = 0; i < size; ++i)
         vecOut[i] = fused<VectorWrapper, ops...>(
           vecIn[i], reinterpret_cast<const typename VectorWrapper::type*>(rows)[i]...);
-}
+}  // namespace
 
 template<typename FeatureSet>
 struct AccumulatorUpdateContext {
@@ -637,7 +635,7 @@ auto make_accumulator_update_context(Color                               perspec
                                      AccumulatorState<FeatureSet>&       accumulatorTo) noexcept {
     return AccumulatorUpdateContext<FeatureSet>{perspective, featureTransformer, accumulatorFrom,
                                                 accumulatorTo};
-}
+}  // namespace
 
 template<bool Forward, typename FeatureSet>
 void update_accumulator_incremental(Color                               perspective,
@@ -723,7 +721,7 @@ void update_accumulator_incremental(Color                               perspect
     }
 
     target_state.computed[perspective] = true;
-}
+}  // namespace
 
 Bitboard get_changed_pieces(const std::array<Piece, SQUARE_NB>& oldPieces,
                             const std::array<Piece, SQUARE_NB>& newPieces) {
@@ -760,7 +758,7 @@ Bitboard get_changed_pieces(const std::array<Piece, SQUARE_NB>& oldPieces,
 
     return changed;
 #endif
-}
+}  // namespace
 
 void update_accumulator_refresh_cache(Color                            perspective,
                                       const FeatureTransformer&        featureTransformer,
@@ -905,7 +903,7 @@ void update_accumulator_refresh_cache(Color                            perspecti
     accumulator.accumulation[perspective]     = entry.accumulation;
     accumulator.psqtAccumulation[perspective] = entry.psqtAccumulation;
 #endif
-}
+}  // namespace
 
 void update_threats_accumulator_full(Color                               perspective,
                                      const FeatureTransformer&           featureTransformer,
@@ -1004,8 +1002,6 @@ void update_threats_accumulator_full(Color                               perspec
     }
 
 #endif
-}
+}  // namespace
 
-}
-
-}
+}  // namespace Stockfish::Eval::NNUE
