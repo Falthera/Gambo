@@ -115,6 +115,105 @@ AccumulatorStack::mut_accumulators() noexcept {
     if constexpr (std::is_same_v<T, PieceCoordFeatureSet>)
         return piece_coord_accumulators;
 }
+
+void AccumulatorStack::reset() noexcept {
+    size = 1;
+    for (auto& acc : psq_accumulators) acc.computed.fill(false);
+    for (auto& acc : threat_accumulators) acc.computed.fill(false);
+    for (auto& acc : king_safety_accumulators) acc.computed.fill(false);
+    for (auto& acc : piece_coord_accumulators) acc.computed.fill(false);
+}
+
+std::pair<DirtyPiece&, DirtyThreats&> AccumulatorStack::push() noexcept {
+    assert(size < MaxSize);
+    ++size;
+    return {mut_latest<PSQFeatureSet>().reset(), mut_latest<ThreatFeatureSet>().reset()};
+}
+
+void AccumulatorStack::pop() noexcept {
+    assert(size > 1);
+    --size;
+}
+
+template<typename FeatureSet>
+std::size_t AccumulatorStack::find_last_usable_accumulator(Color perspective) const noexcept {
+    const auto& acc = accumulators<FeatureSet>();
+    std::size_t i = size - 1;
+    while (i > 0 && !acc[i].computed[perspective])
+        --i;
+    return i;
+}
+
+template<typename FeatureSet>
+void AccumulatorStack::forward_update_incremental(Color                     perspective,
+                                                  const Position&           pos,
+                                                  const FeatureTransformer& featureTransformer,
+                                                  const std::size_t         begin) noexcept {
+    for (std::size_t i = begin; i < size; ++i) {
+        update_accumulator_incremental<true, FeatureSet>(perspective, featureTransformer,
+                                                         pos.square<KING>(perspective),
+                                                         mut_latest<FeatureSet>(),
+                                                         accumulators<FeatureSet>()[i]);
+    }
+}
+
+template<typename FeatureSet>
+void AccumulatorStack::backward_update_incremental(Color                     perspective,
+                                                   const Position&           pos,
+                                                   const FeatureTransformer& featureTransformer,
+                                                   const std::size_t         end) noexcept {
+    for (std::size_t i = end; i > 0; --i) {
+        update_accumulator_incremental<false, FeatureSet>(perspective, featureTransformer,
+                                                          pos.square<KING>(perspective),
+                                                          mut_latest<FeatureSet>(),
+                                                          accumulators<FeatureSet>()[i - 1]);
+    }
+}
+
+template<typename FeatureSet>
+void AccumulatorStack::evaluate_side(Color                     perspective,
+                                     const Position&           pos,
+                                     const FeatureTransformer& featureTransformer,
+                                     [[maybe_unused]] AccumulatorCaches& cache) noexcept {
+    const std::size_t usable = find_last_usable_accumulator<FeatureSet>(perspective);
+    
+    if (usable == size - 1) {
+        // Already up to date
+        return;
+    }
+    
+    if (usable == 0) {
+        // Full refresh needed
+        if constexpr (std::is_same_v<FeatureSet, PSQFeatureSet>) {
+            update_accumulator_refresh_cache(perspective, featureTransformer, pos, mut_latest<PSQFeatureSet>(), cache);
+        } else if constexpr (std::is_same_v<FeatureSet, KingSafetyFeatureSet>) {
+            update_king_safety_accumulator_refresh_cache(perspective, featureTransformer, pos, mut_latest<KingSafetyFeatureSet>());
+        } else if constexpr (std::is_same_v<FeatureSet, PieceCoordFeatureSet>) {
+            update_piece_coord_accumulator_full(perspective, featureTransformer, pos, mut_latest<PieceCoordFeatureSet>());
+        } else if constexpr (std::is_same_v<FeatureSet, ThreatFeatureSet>) {
+            update_threats_accumulator_full(perspective, featureTransformer, pos, mut_latest<ThreatFeatureSet>());
+        }
+    } else {
+        // Incremental update from usable to end
+        forward_update_incremental<FeatureSet>(perspective, pos, featureTransformer, usable + 1);
+    }
+    
+    mut_latest<FeatureSet>().computed[perspective] = true;
+}
+
+void AccumulatorStack::evaluate(const Position&           pos,
+                                const FeatureTransformer& featureTransformer,
+                                [[maybe_unused]] AccumulatorCaches& cache) noexcept {
+    evaluate_side<PSQFeatureSet>(WHITE, pos, featureTransformer, cache);
+    evaluate_side<PSQFeatureSet>(BLACK, pos, featureTransformer, cache);
+    evaluate_side<ThreatFeatureSet>(WHITE, pos, featureTransformer, cache);
+    evaluate_side<ThreatFeatureSet>(BLACK, pos, featureTransformer, cache);
+    evaluate_side<KingSafetyFeatureSet>(WHITE, pos, featureTransformer, cache);
+    evaluate_side<KingSafetyFeatureSet>(BLACK, pos, featureTransformer, cache);
+    evaluate_side<PieceCoordFeatureSet>(WHITE, pos, featureTransformer, cache);
+    evaluate_side<PieceCoordFeatureSet>(BLACK, pos, featureTransformer, cache);
+}
+
 }  // namespace Stockfish::Eval::NNUE
 
 
@@ -148,4 +247,25 @@ template std::array<AccumulatorState<KingSafetyFeatureSet>, AccumulatorStack::Ma
 AccumulatorStack::mut_accumulators<KingSafetyFeatureSet>() noexcept;
 template std::array<AccumulatorState<PieceCoordFeatureSet>, AccumulatorStack::MaxSize>&
 AccumulatorStack::mut_accumulators<PieceCoordFeatureSet>() noexcept;
+
+// Explicit template instantiations for private template methods
+template std::size_t AccumulatorStack::find_last_usable_accumulator<PSQFeatureSet>(Color) const noexcept;
+template std::size_t AccumulatorStack::find_last_usable_accumulator<ThreatFeatureSet>(Color) const noexcept;
+template std::size_t AccumulatorStack::find_last_usable_accumulator<KingSafetyFeatureSet>(Color) const noexcept;
+template std::size_t AccumulatorStack::find_last_usable_accumulator<PieceCoordFeatureSet>(Color) const noexcept;
+
+template void AccumulatorStack::forward_update_incremental<PSQFeatureSet>(Color, const Position&, const FeatureTransformer&, std::size_t) noexcept;
+template void AccumulatorStack::forward_update_incremental<ThreatFeatureSet>(Color, const Position&, const FeatureTransformer&, std::size_t) noexcept;
+template void AccumulatorStack::forward_update_incremental<KingSafetyFeatureSet>(Color, const Position&, const FeatureTransformer&, std::size_t) noexcept;
+template void AccumulatorStack::forward_update_incremental<PieceCoordFeatureSet>(Color, const Position&, const FeatureTransformer&, std::size_t) noexcept;
+
+template void AccumulatorStack::backward_update_incremental<PSQFeatureSet>(Color, const Position&, const FeatureTransformer&, std::size_t) noexcept;
+template void AccumulatorStack::backward_update_incremental<ThreatFeatureSet>(Color, const Position&, const FeatureTransformer&, std::size_t) noexcept;
+template void AccumulatorStack::backward_update_incremental<KingSafetyFeatureSet>(Color, const Position&, const FeatureTransformer&, std::size_t) noexcept;
+template void AccumulatorStack::backward_update_incremental<PieceCoordFeatureSet>(Color, const Position&, const FeatureTransformer&, std::size_t) noexcept;
+
+template void AccumulatorStack::evaluate_side<PSQFeatureSet>(Color, const Position&, const FeatureTransformer&, AccumulatorCaches&) noexcept;
+template void AccumulatorStack::evaluate_side<ThreatFeatureSet>(Color, const Position&, const FeatureTransformer&, AccumulatorCaches&) noexcept;
+template void AccumulatorStack::evaluate_side<KingSafetyFeatureSet>(Color, const Position&, const FeatureTransformer&, AccumulatorCaches&) noexcept;
+template void AccumulatorStack::evaluate_side<PieceCoordFeatureSet>(Color, const Position&, const FeatureTransformer&, AccumulatorCaches&) noexcept;
 }  // namespace Stockfish::Eval::NNUE
