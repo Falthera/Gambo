@@ -290,7 +290,12 @@ bool Search::Worker::iterative_deepening() {
         (ss - i)->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
         (ss - i)->threatMapHistory = &sharedHistories.begin()->second.threat_map_entry(rootPos);
         (ss - i)->colourContinuationHistory = &sharedHistories.begin()->second.colour_continuation_entry(rootPos);
+        (ss - i)->moveTypeHistory = &sharedHistories.begin()->second.move_type_entry(rootPos);
+        (ss - i)->moveTypeCaptureHistory = &sharedHistories.begin()->second.move_type_capture_entry(rootPos);
+        (ss - i)->qSearchCaptureHistory = &sharedHistories.begin()->second.qsearch_capture_entry(rootPos);
         (ss - i)->staticEval                    = VALUE_NONE;
+        (ss - i)->extensionAccumulator          = 0;
+        (ss - i)->singularExtensionCount        = 0;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
@@ -1086,7 +1091,19 @@ moves_loop:  // When in check, search starts here
 
         int delta = beta - alpha;
 
-        int r = reduction(improving, depth, moveCount, delta);
+        // LMRC: Context-aware LMR reduction
+        int threatCat = Search::threat_category(pos, us, move, ss);
+        int history = (*contHist[0])[movedPiece][move.to_sq()]
+                    + (*contHist[1])[movedPiece][move.to_sq()]
+                    + sharedHistory.pawn_entry(pos)[movedPiece][move.to_sq()];
+        if (Search::use_move_type_history())
+        {
+            Search::MoveTypeClass mt = Search::move_type_class(pos, move, ss->inCheck);
+            int mtIdx = static_cast<int>(mt);
+            history += sharedHistory.move_type_entry(pos)[mtIdx][movedPiece][move.to_sq()] / 4;
+        }
+        
+        int r = contextual_reduction(pos, ss, improving, depth, moveCount, delta, history, threatCat, ss->ttPv);
 
         // Increase reduction for ttPv nodes (*Scaler)
         // Larger values scale well
@@ -1150,11 +1167,24 @@ moves_loop:  // When in check, search starts here
                             + (*contHist[1])[movedPiece][move.to_sq()]
                             + sharedHistory.pawn_entry(pos)[movedPiece][move.to_sq()];
 
+                // MTCH: Add move type history to history score
+                if (Search::use_move_type_history())
+                {
+                    Search::MoveTypeClass mt = Search::move_type_class(pos, move, ss->inCheck);
+                    int mtIdx = static_cast<int>(mt);
+                    history += sharedHistory.move_type_entry(pos)[mtIdx][movedPiece][move.to_sq()] / 4;
+                }
+
                 // Continuation history based pruning
                 if (history < -4313 * depth)
                     continue;
 
                 history += 64 * mainHistory[us][move.raw()] / 32;
+
+                // HGQMP: History-Guided Quiet Move Pruning
+                int threatCat = Search::threat_category(pos, us, move, ss);
+                if (Search::prune_quiet_move(pos, ss, move, moveCount, depth, history, ss->inCheck, ss->ttPv, threatCat))
+                    continue;
 
                 // (*Scaler): Generally, lower divisors scale well
                 lmrDepth += history / lmrDivisor[dIndex];
@@ -1200,7 +1230,7 @@ moves_loop:  // When in check, search starts here
             }
         }
 
-        // Step 15. Extensions
+// Step 15. Extensions
         // Singular extension search. If all moves but one
         // fail low on a search of (alpha-s, beta-s), and just one fails high on
         // (alpha, beta), then that move is singular and should be extended. To
@@ -1214,26 +1244,46 @@ moves_loop:  // When in check, search starts here
             && is_valid(ttData.value) && !is_decisive(ttData.value) && (ttData.bound & BOUND_LOWER)
             && ttData.depth >= depth - 3 && !is_shuffling(move, ss, pos))
         {
-            Value singularBeta  = ttData.value - (60 + 70 * (ss->ttPv && !PvNode)) * depth / 59;
-            Depth singularDepth = newDepth / 2;
-
-            ss->excludedMove = move;
-            value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
-            ss->excludedMove = Move::none();
-
-            if (value < singularBeta)
+            // EGC: Extension Growth Control - limit total extensions along path
+            constexpr int MAX_EXTENSIONS_PER_PATH = 6;  // Hard limit
+            if (ss->extensionAccumulator >= MAX_EXTENSIONS_PER_PATH)
             {
-                int corrValAdj   = std::abs(correctionValue) / 194822;
-                int doubleMargin = -3 + 201 * PvNode - 157 * !ttCapture - corrValAdj
-                                 - 1081 * ttMoveHistory / 117824 - (ss->ply > rootDepth) * 41;
-                int tripleMargin = 72 + 306 * PvNode - 188 * !ttCapture + 84 * ss->ttPv - corrValAdj
-                                 - (ss->ply > rootDepth) * 45;
-
-                extension =
-                  1 + (value < singularBeta - doubleMargin) + (value < singularBeta - tripleMargin);
-
-                depth++;
+                // Too many extensions already, skip singular extension
             }
+            else
+            {
+                Value singularBeta  = ttData.value - (60 + 70 * (ss->ttPv && !PvNode)) * depth / 59;
+                Depth singularDepth = newDepth / 2;
+
+                ss->excludedMove = move;
+                value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
+                ss->excludedMove = Move::none();
+
+                if (value < singularBeta)
+                {
+                    // SESR: Singular Extension Search Refinement - improved candidate verification
+                    int corrValAdj   = std::abs(correctionValue) / 194822;
+                    int doubleMargin = -3 + 201 * PvNode - 157 * !ttCapture - corrValAdj
+                                       - 1081 * ttMoveHistory / 117824 - (ss->ply > rootDepth) * 41;
+                    int tripleMargin = 72 + 306 * PvNode - 188 * !ttCapture + 84 * ss->ttPv - corrValAdj
+                                       - (ss->ply > rootDepth) * 45;
+
+                    // SESR: Verify with TT information if available
+                    int ttDepthBonus = std::min(ttData.depth - (depth - 3), 4);
+                    if (ttData.bound & BOUND_EXACT)
+                        tripleMargin -= ttDepthBonus * 2;  // Exact score gives more confidence
+
+                    extension =
+                      1 + (value < singularBeta - doubleMargin) + (value < singularBeta - tripleMargin);
+
+                    // EGC: Track extension accumulation
+                    ss->extensionAccumulator += extension;
+                    ss->singularExtensionCount += 1;
+
+                    depth++;
+                }
+            }
+        }
 
             // Multi-cut pruning
             // Our ttMove is assumed to fail high based on the bound of the TT entry,
@@ -1657,11 +1707,25 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
     pvHit        = ttHit && ttData.is_pv;
 
+    // QTC: QSearch Transposition Correction
+    // Track the difference between static eval and TT eval for future corrections
+    int qsearchCorrection = 0;
+    if (ttHit && is_valid(ttData.eval) && is_valid(ttData.value))
+    {
+        qsearchCorrection = ttData.eval - ttData.value;
+    }
+
     // At non-PV nodes we check for an early TT cutoff
     if (!PvNode && ttData.depth >= DEPTH_QS
         && is_valid(ttData.value)  // Can happen when !ttHit or when access race in probe()
         && (ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER)))
-        return ttData.value;
+    {
+        // QTC: Apply correction if we have a reliable correction value
+        Value correctedValue = ttData.value;
+        if (std::abs(qsearchCorrection) < 200) // Only correct if correction is small/reliable
+            correctedValue = ttData.value + qsearchCorrection / 4;
+        return correctedValue;
+    }
 
     // Step 4. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
@@ -1838,6 +1902,41 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 int Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
     int reductionScale = reductions[d] * reductions[mn];
     return reductionScale - delta * 617 / rootDelta + !i * reductionScale * 194 / 512 + 1027;
+}
+
+// LMRC — LMR Context Calibration
+// Returns adjusted reduction based on search context
+int Search::Worker::contextual_reduction(const Position& pos, const Stack* ss, bool improving, Depth depth, int moveCount, int delta, int history, int threatCat, bool ttPv) const {
+    int r = reduction(improving, depth, moveCount, delta);
+    
+    // Reduce less for moves with good history
+    if (history > 0) {
+        int historyBonus = std::min(history / 32, depth * 8);
+        r -= historyBonus;
+    }
+    
+    // Reduce less in critical tactical positions
+    if (threatCat >= 2) { // check, slider, fork, pin, etc.
+        r -= depth / 2;
+    }
+    
+    // Reduce less for PV nodes and TT moves
+    if (ttPv) {
+        r -= 128;
+    }
+    
+    // Reduce less if we have fail-high history
+    if (ss && ss->failHighCount > 0) {
+        r -= std::min(ss->failHighCount * 32, depth * 16);
+    }
+    
+    // Reduce more for very late moves with bad history
+    if (moveCount > 15 && history < -5000) {
+        r += depth * 4;
+    }
+    
+    // Ensure minimum reduction
+    return std::max(r, 0);
 }
 
 // elapsed() returns the time elapsed since the search started. If the

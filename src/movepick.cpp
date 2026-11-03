@@ -229,6 +229,21 @@ if constexpr (Type == CAPTURES)
                 m.value = (*captureHistory)[pc][to][type_of(capturedPiece)]
                         + 7 * int(PieceValue[capturedPiece]);
 
+                // SEE-GCP: Classify capture by SEE value
+                int seeValue = pos.see(m);
+                Search::SEEClass seeClass = Search::see_class(pos, m, seeValue);
+                if (Search::use_qsearch_capture_history() && sharedHistory)
+                {
+                    int seeClassIdx = static_cast<int>(seeClass);
+                    m.value += (*sharedHistory->qsearch_capture_entry(pos))[pc][to][type_of(capturedPiece)] / 4;
+                    // Boost winning captures
+                    if (seeClass == Search::SEEClass::SEE_WINNING)
+                        m.value += 1024;
+                    // Penalize losing captures unless they're promotions/enpassant
+                    else if (seeClass == Search::SEEClass::SEE_LOSING && seeClass != Search::SEEClass::SEE_PROMOTION && seeClass != Search::SEEClass::SEE_ENPASSANT)
+                        m.value -= 512;
+                }
+
                 if (Search::ultra_aggressive())
                 {
                     const int ringBonus = (enemyRing & to) ? 1 : 0;
@@ -245,7 +260,7 @@ if constexpr (Type == CAPTURES)
                 }
             }
 
-            else if constexpr (Type == QUIETS)
+else if constexpr (Type == QUIETS)
             {
                 // histories
                 m.value = 2 * (*mainHistory)[us][m.raw()];
@@ -255,6 +270,14 @@ if constexpr (Type == CAPTURES)
                 m.value += (*continuationHistory[2])[pc][to];
                 m.value += (*continuationHistory[3])[pc][to];
                 m.value += (*continuationHistory[5])[pc][to];
+
+                // MTCH: Move-Type Conditioned History
+                if (Search::use_move_type_history() && sharedHistory)
+                {
+                    Search::MoveTypeClass mt = Search::move_type_class(pos, m, false);
+                    int mtIdx = static_cast<int>(mt);
+                    m.value += (*sharedHistory->move_type_entry(pos))[mtIdx][pc][to] / 2;
+                }
 
                 // bonus for checks
                 m.value += ((pos.check_squares(pt) & to) && pos.see_ge(m, -75)) * 16384;
@@ -335,6 +358,33 @@ top:
 
         cur = endBadCaptures = moves;
         endCur = endCaptures = score<CAPTURES>(ml);
+
+        // CHQO: SEE-GCP partitioning for qsearch captures
+        if (Search::use_qsearch_capture_history() && sharedHistory)
+        {
+            for (ExtMove* m = cur; m < endCur; ++m)
+            {
+                int seeValue = pos.see(*m);
+                Search::SEEClass seeClass = Search::see_class(pos, *m, seeValue);
+                int seeClassIdx = static_cast<int>(seeClass);
+                
+                // Boost winning captures significantly in qsearch
+                if (seeClass == Search::SEEClass::SEE_WINNING)
+                    m->value += 2048;
+                // Promotions and en passant get priority
+                else if (seeClass == Search::SEEClass::SEE_PROMOTION || seeClass == Search::SEEClass::SEE_ENPASSANT)
+                    m->value += 1024;
+                // Penalize losing captures
+                else if (seeClass == Search::SEEClass::SEE_LOSING)
+                    m->value -= 1024;
+                
+                // Add qsearch capture history
+                Piece pc = pos.moved_piece(*m);
+                Square to = m->to_sq();
+                Piece captured = pos.piece_on(to);
+                m->value += (*sharedHistory->qsearch_capture_entry(pos))[pc][to][type_of(captured)] / 2;
+            }
+        }
 
         partial_insertion_sort(cur, endCur, std::numeric_limits<int>::min());
         ++stage;

@@ -102,6 +102,36 @@ inline bool use_colour_continuation_history() {
 inline bool use_multi_ply_continuation_history() {
     return globalOptions ? bool((*globalOptions)["GAMBO.MultiPlyContinuationHistory"]) : false;
 }
+inline bool use_move_type_history() {
+    return globalOptions ? bool((*globalOptions)["GAMBO.MoveTypeHistory"]) : true;
+}
+inline bool use_qsearch_capture_history() {
+    return globalOptions ? bool((*globalOptions)["GAMBO.QSearchCaptureHistory"]) : true;
+}
+
+// Tier 2: Performance and Memory Optimisations
+inline bool use_incremental_nnue() {
+    return globalOptions ? bool((*globalOptions)["GAMBO.IncrementalNNUE"]) : true;
+}
+inline bool use_fast_accumulator_refresh() {
+    return globalOptions ? bool((*globalOptions)["GAMBO.FastAccumulatorRefresh"]) : true;
+}
+inline bool use_simd_nnue() {
+    return globalOptions ? bool((*globalOptions)["GAMBO.SIMDNNUE"]) : true;
+}
+inline bool use_prefetch_tt() {
+    return globalOptions ? bool((*globalOptions)["GAMBO.PrefetchTT"]) : false;
+}
+inline bool use_compact_tt() {
+    return globalOptions ? bool((*globalOptions)["GAMBO.CompactTT"]) : false;
+}
+inline bool use_numa_alloc() {
+    return globalOptions ? bool((*globalOptions)["GAMBO.NUMAAlloc"]) : true;
+}
+inline std::string pgo_profile_path() {
+    if (!globalOptions) return "";
+    return std::string((*globalOptions)["GAMBO.PGOProfile"]);
+}
 
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.

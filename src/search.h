@@ -70,6 +70,9 @@ struct Stack {
     CorrectionHistory<PieceTo>* continuationCorrectionHistory;
     ThreatMapHistory*           threatMapHistory;
     ColourContinuationHistory*  colourContinuationHistory;
+    MoveTypeHistory*            moveTypeHistory;
+    MoveTypeCaptureHistory*     moveTypeCaptureHistory;
+    QSearchCaptureHistory*      qSearchCaptureHistory;
     int                         ply;
     Move                        currentMove;
     Move                        excludedMove;
@@ -84,6 +87,9 @@ struct Stack {
     int                         reduction;
     int                         failHighCount;
     int                         kingZoneAttackers;
+    // EGC: Extension Growth Control
+    int                         extensionAccumulator;
+    int                         singularExtensionCount;
 };
 
 enum class StyleMode : int { Balanced = 0, UltraAggressive = 1 };
@@ -280,7 +286,109 @@ inline int threat_category(const Position& pos, Color us, Move m, const Stack* s
     return 0; // No significant threat
 }
 
-// Compensation detection for sacrifices.
+// MTCH — Move-Type Conditioned History
+// Classifies moves into categories for separate history tracking
+enum class MoveTypeClass : int {
+    MT_QUIET    = 0,  // Normal quiet move
+    MT_CAPTURE  = 1,  // Capture
+    MT_PROMOTION = 2, // Promotion
+    MT_CHECK    = 3,  // Checking move
+    MT_EVASION  = 4,  // Evasion from check
+    MT_CASTLING = 5,  // Castling
+    MT_ENPASSANT = 6, // En passant
+    MT_NUM_TYPES = 7
+};
+
+// Returns the move type class for history indexing
+inline MoveTypeClass move_type_class(const Position& pos, Move m, bool inCheck) {
+    if (m.type_of() == CASTLING)
+        return MoveTypeClass::MT_CASTLING;
+    if (m.type_of() == EN_PASSANT)
+        return MoveTypeClass::MT_ENPASSANT;
+    if (m.type_of() == PROMOTION)
+        return MoveTypeClass::MT_PROMOTION;
+    if (pos.capture_stage(m))
+        return MoveTypeClass::MT_CAPTURE;
+    if (pos.gives_check(m, pos.checkers()))
+        return MoveTypeClass::MT_CHECK;
+    if (inCheck)
+        return MoveTypeClass::MT_EVASION;
+    return MoveTypeClass::MT_QUIET;
+}
+
+// SEE-GCP — SEE-Guided Capture Partitioning
+// Classifies captures by SEE value for ordering and pruning decisions
+enum class SEEClass : int {
+    SEE_WINNING    = 0, // SEE >= 0 (winning or equal)
+    SEE_LOSING     = 1, // SEE < 0 (losing)
+    SEE_PROMOTION  = 2, // Promotion capture
+    SEE_ENPASSANT  = 3, // En passant capture
+    SEE_NUM_CLASSES = 4
+};
+
+// Returns the SEE class for a capture move
+inline SEEClass see_class(const Position& pos, Move m, int seeValue) {
+    if (m.type_of() == PROMOTION)
+        return SEEClass::SEE_PROMOTION;
+    if (m.type_of() == EN_PASSANT)
+        return SEEClass::SEE_ENPASSANT;
+    if (seeValue >= 0)
+        return SEEClass::SEE_WINNING;
+    return SEEClass::SEE_LOSING;
+}
+
+// HGQMP — History-Guided Quiet Move Pruning
+// Returns true if a quiet move should be pruned based on history and context
+inline bool prune_quiet_move(const Position& pos, const Stack* ss, Move move, int moveCount, Depth depth, int historyScore, bool inCheck, bool ttPv, int threatCat) {
+    if (inCheck || ttPv || moveCount <= 2)
+        return false;
+    
+    // Don't prune killer moves
+    if (move == (ss - 1)->currentMove || move == (ss - 2)->currentMove)
+        return false;
+    
+    // Don't prune moves with good history
+    if (historyScore > 0)
+        return false;
+    
+    // Don't prune in critical tactical positions
+    if (threatCat >= 2) // check, slider, fork, pin, discovered, multiple
+        return false;
+    
+    // Depth-based pruning threshold
+    int depthThreshold = depth / 4 + 2;
+    if (moveCount <= depthThreshold)
+        return false;
+    
+    // History-based pruning: very bad history scores get pruned
+    if (historyScore < -1000 * depthThreshold)
+        return true;
+    
+    return false;
+}
+
+// URD — Upcoming Repetition Detection
+// Detects if a move would lead to an upcoming repetition
+inline bool upcoming_repetition(const Position& pos, Move m, int depth, const Stack* ss) {
+    if (depth < 4)
+        return false;
+    
+    // Check if the move would repeat a position in the near future
+    // This is a simplified check - a full implementation would track the move
+    // and resulting position to see if it leads to a 3-fold repetition
+    if (pos.is_draw())
+        return true;
+    
+    // Check if the move is a "waiting" move that could lead to repetition
+    if (!pos.capture_stage(m) && !pos.gives_check(m, pos.checkers())) {
+        // Simple heuristic: if we're shuffling and the position is balanced
+        // (no clear advantage), we might be heading towards repetition
+        if (pos.non_pawn_material() < 4000 && std::abs(pos.psqt_eval()) < 50)
+            return true;
+    }
+    
+    return false;
+}
 // Returns a score representing the attacking compensation for material sacrificed.
 // Positive values indicate compensation (initiative, king safety, piece activity).
 // This is used to distinguish sound sacrifices from unsound ones.

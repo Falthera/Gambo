@@ -164,6 +164,27 @@ using ColourContinuationHistory = MultiArray<PieceToHistory, COLOR_NB, COLOR_NB,
 // Indexed by [prev2_piece][prev2_to][prev1_piece][prev1_to][piece][to]
 using MultiPlyContinuationHistory = MultiArray<PieceToHistory, PIECE_NB, SQUARE_NB, PIECE_NB, SQUARE_NB>;
 
+// MTCH — Move-Type Conditioned History
+// Separate history tables for different move categories
+enum MoveHistoryType {
+    MH_QUIET = 0,
+    MH_CAPTURE = 1,
+    MH_PROMOTION = 2,
+    MH_CHECK = 3,
+    MH_EVASION = 4,
+    MH_CASTLING = 5,
+    MH_ENPASSANT = 6,
+    MH_NUM_TYPES = 7
+};
+
+// Indexed by [move_type][piece][to] for quiet moves, [move_type][piece][to][captured] for captures
+using MoveTypeHistory = Stats<std::int16_t, 30000, MH_NUM_TYPES, PIECE_NB, SQUARE_NB>;
+using MoveTypeCaptureHistory = Stats<std::int16_t, 10692, MH_NUM_TYPES, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;
+
+// CHQO — Capture-History Quiescence Ordering
+// Enhanced capture history for qsearch with SEE integration
+using QSearchCaptureHistory = Stats<std::int16_t, 10692, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;
+
 // PawnHistory is addressed by the pawn structure and a move's [piece][to]
 using PawnHistory =
   DynStats<AtomicStats<std::int16_t, 8192, PIECE_NB, SQUARE_NB>, PAWN_HISTORY_BASE_SIZE>;
@@ -240,13 +261,19 @@ struct SharedHistories {
         pawnHistory(threadCount),
         threatMapHistory(threadCount),
         colourContinuationHistory(threadCount),
-        multiPlyContinuationHistory(threadCount) {
+        multiPlyContinuationHistory(threadCount),
+        moveTypeHistory(threadCount),
+        moveTypeCaptureHistory(threadCount),
+        qSearchCaptureHistory(threadCount) {
         assert((threadCount & (threadCount - 1)) == 0 && threadCount != 0);
         sizeMinus1                    = correctionHistory.get_size() - 1;
         pawnHistSizeMinus1            = pawnHistory.get_size() - 1;
         threatMapHistSizeMinus1       = threatMapHistory.get_size() - 1;
         colourContinuationHistSizeMinus1 = colourContinuationHistory.get_size() - 1;
         multiPlyContinuationHistSizeMinus1 = multiPlyContinuationHistory.get_size() - 1;
+        moveTypeHistSizeMinus1        = moveTypeHistory.get_size() - 1;
+        moveTypeCaptureHistSizeMinus1 = moveTypeCaptureHistory.get_size() - 1;
+        qSearchCaptureHistSizeMinus1  = qSearchCaptureHistory.get_size() - 1;
     }
 
     size_t get_size() const { return sizeMinus1 + 1; }
@@ -302,14 +329,38 @@ struct SharedHistories {
         return multiPlyContinuationHistory[pos.pawn_key() & multiPlyContinuationHistSizeMinus1];
     }
 
+    auto& move_type_entry(const Position& pos) {
+        return moveTypeHistory[pos.pawn_key() & moveTypeHistSizeMinus1];
+    }
+    const auto& move_type_entry(const Position& pos) const {
+        return moveTypeHistory[pos.pawn_key() & moveTypeHistSizeMinus1];
+    }
+
+    auto& move_type_capture_entry(const Position& pos) {
+        return moveTypeCaptureHistory[pos.pawn_key() & moveTypeCaptureHistSizeMinus1];
+    }
+    const auto& move_type_capture_entry(const Position& pos) const {
+        return moveTypeCaptureHistory[pos.pawn_key() & moveTypeCaptureHistSizeMinus1];
+    }
+
+    auto& qsearch_capture_entry(const Position& pos) {
+        return qSearchCaptureHistory[pos.pawn_key() & qSearchCaptureHistSizeMinus1];
+    }
+    const auto& qsearch_capture_entry(const Position& pos) const {
+        return qSearchCaptureHistory[pos.pawn_key() & qSearchCaptureHistSizeMinus1];
+    }
+
     UnifiedCorrectionHistory correctionHistory;
     PawnHistory              pawnHistory;
     ThreatMapHistory         threatMapHistory;
     ColourContinuationHistory colourContinuationHistory;
     MultiPlyContinuationHistory multiPlyContinuationHistory;
+    MoveTypeHistory          moveTypeHistory;
+    MoveTypeCaptureHistory   moveTypeCaptureHistory;
+    QSearchCaptureHistory    qSearchCaptureHistory;
 
 private:
-    size_t sizeMinus1, pawnHistSizeMinus1, threatMapHistSizeMinus1, colourContinuationHistSizeMinus1, multiPlyContinuationHistSizeMinus1;
+    size_t sizeMinus1, pawnHistSizeMinus1, threatMapHistSizeMinus1, colourContinuationHistSizeMinus1, multiPlyContinuationHistSizeMinus1, moveTypeHistSizeMinus1, moveTypeCaptureHistSizeMinus1, qSearchCaptureHistSizeMinus1;
 };
 
 }  // namespace Stockfish

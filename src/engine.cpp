@@ -153,6 +153,17 @@ Engine::Engine(std::optional<std::string> path) :
     options.add("GAMBO.ThreatMapHistory", Option(true));
     options.add("GAMBO.ColourContinuationHistory", Option(true));
     options.add("GAMBO.MultiPlyContinuationHistory", Option(false));
+    options.add("GAMBO.MoveTypeHistory", Option(true));
+    options.add("GAMBO.QSearchCaptureHistory", Option(true));
+
+    // Tier 2: Performance and Memory Optimisations
+    options.add("GAMBO.IncrementalNNUE", Option(true));
+    options.add("GAMBO.FastAccumulatorRefresh", Option(true));
+    options.add("GAMBO.SIMDNNUE", Option(true));
+    options.add("GAMBO.PrefetchTT", Option(false));
+    options.add("GAMBO.CompactTT", Option(false));
+    options.add("GAMBO.NUMAAlloc", Option(true));
+    options.add("GAMBO.PGOProfile", Option(""));
 
     options.add(  //
       "SyzygyPath", Option("", [](const Option& o) {
