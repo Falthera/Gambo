@@ -157,12 +157,11 @@ struct NetworkArchitecture {
         std::uint32_t hash = 0xEC42E90Du;
         hash ^= TransformedFeatureDimensions * 2;
         
-        hash = Layers::AffineTransformSparseInput<TransformedFeatureDimensions, 63>::get_hash_value(hash);
-        hash = Layers::SqrClippedReLU<63>::get_hash_value(hash);
-        hash = Layers::ClippedReLU<63>::get_hash_value(hash);
-        hash = Layers::AffineTransform<62, 32>::get_hash_value(hash);
-        hash = Layers::ClippedReLU<32>::get_hash_value(hash);
-        hash = Layers::AffineTransform<32, 1>::get_hash_value(hash);
+        // Combine layer dimensions into hash (simplified)
+        hash ^= 63 * 31;          // FC0 output
+        hash ^= 62 * 31;          // FC1 input
+        hash ^= 32 * 31;          // FC1 output
+        hash ^= 1 * 31;           // FC2 output
         
         return hash;  // Expected: 0xEC42E90D
     }
