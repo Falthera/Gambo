@@ -58,7 +58,7 @@ std::int32_t NetworkArchitecture::propagate(const TransformedFeatureType* transf
     // Layer 1: Dense 62 -> 32 (concat first 31 from each ReLU)
     typename Layers::AffineTransform<62, 32>::OutputBuffer fc1_in;
     for (int i = 0; i < 31; ++i) fc1_in[i] = sqr_out[i];
-    for (int i = 31; i < 63; ++i) fc1_in[i] = clipped_out[i];
+    for (int i = 0; i < 31; ++i) fc1_in[31 + i] = clipped_out[i];
     fc1_in.count = 62;
 
     typename Layers::AffineTransform<62, 32>::OutputBuffer fc1_out;
