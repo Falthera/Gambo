@@ -268,7 +268,7 @@ if constexpr (Type == CAPTURES)
                     if (ringBonus && pt != KING)
                     {
                         // Additional bonus for pieces that can give check or create threats
-                        const Bitboard attacks = pos.attacks_from(pc, to);
+                        const Bitboard attacks = attacks_bb(pc, to, pos.pieces());
                         if (attacks & enemyRing)
                             m.value += 600;  // Creates direct attack on king zone
 

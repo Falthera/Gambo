@@ -101,7 +101,7 @@ void PieceRelative::append_active_indices(Color perspective, const Position& pos
     Bitboard our_pawns = pos.pieces(us, PAWN);
     while (our_pawns) {
         Square p = pop_lsb(our_pawns);
-        Bitboard pawn_attacks = pos.attacks_from(make_piece(perspective, PAWN), p);
+        Bitboard pawn_attacks = attacks_bb(make_piece(perspective, PAWN), p, pos.pieces());
         Bitboard protected_pawns = our_pawns & pawn_attacks;
         while (protected_pawns) {
             Square protected = pop_lsb(protected_pawns);
@@ -139,8 +139,8 @@ void PieceRelative::append_active_indices(Color perspective, const Position& pos
         Square q = pop_lsb(our_queens);
         while (our_knights) {
             Square n = pop_lsb(our_knights);
-            Bitboard q_attacks = pos.attacks_from(make_piece(perspective, QUEEN), q);
-            Bitboard n_attacks = pos.attacks_from(make_piece(perspective, KNIGHT), n);
+            Bitboard q_attacks = attacks_bb(make_piece(perspective, QUEEN), q, pos.pieces());
+            Bitboard n_attacks = attacks_bb(make_piece(perspective, KNIGHT), n, pos.pieces());
             if (popcount(q_attacks & n_attacks & enemy_king_zone) >= 2) {
                 IndexType idx = make_index(COORD_QUEEN_KNIGHT, q, n, perspective);
                 if (active.size() < MaxActiveDimensions) active.push_back(idx);

@@ -160,8 +160,8 @@ void PieceCoordination::append_active_indices(Color perspective, const Position&
     for (Square q : ourQueens) {
         for (Square n : ourKnights) {
             // Check if queen and knight attack common squares near enemy king
-            Bitboard queenAttacks = pos.attacks_from(make_piece(us, QUEEN), q);
-            Bitboard knightAttacks = pos.attacks_from(make_piece(us, KNIGHT), n);
+            Bitboard queenAttacks = attacks_bb(make_piece(us, QUEEN), q, pos.pieces());
+            Bitboard knightAttacks = attacks_bb(make_piece(us, KNIGHT), n, pos.pieces());
             Square enemyKing = pos.square<KING>(them);
             Bitboard kingZone = attacks_bb<KING>(enemyKing) | square_bb(enemyKing);
             

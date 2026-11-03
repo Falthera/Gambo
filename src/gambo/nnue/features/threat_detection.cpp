@@ -101,7 +101,7 @@ void ThreatDetection::append_active_indices(Color perspective, const Position& p
             Piece attacker = make_piece(us, pt);
             
             // Generate attacks from this piece
-            Bitboard attacks = pos.attacks_from(attacker, from);
+            Bitboard attacks = attacks_bb(attacker, from, pos.pieces());
             while (attacks) {
                 Square to = pop_lsb(attacks);
                 Piece target = pos.piece_on(to);
@@ -122,7 +122,7 @@ void ThreatDetection::append_active_indices(Color perspective, const Position& p
             Square from = pop_lsb(attackers);
             Piece attacker = make_piece(them, pt);
             
-            Bitboard attacks = pos.attacks_from(attacker, from);
+            Bitboard attacks = attacks_bb(attacker, from, pos.pieces());
             while (attacks) {
                 Square to = pop_lsb(attacks);
                 Piece target = pos.piece_on(to);
