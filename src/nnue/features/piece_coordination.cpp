@@ -211,7 +211,7 @@ void PieceCoordination::append_changed_indices(
 // Extended version for incremental updates with feature weights (full signature)
 void PieceCoordination::append_changed_indices(
   Color perspective, Square ksq, const DiffType& diff, IndexList& removed, IndexList& added,
-  void* extra1, bool extra2, const IndexType* pfBase, IndexType pfStride) {
+  void* extra1, bool extra2, const void* pfBase, IndexType pfStride) {
   (void)extra1;
   (void)extra2;
   (void)pfBase;
