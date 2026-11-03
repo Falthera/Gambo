@@ -34,6 +34,8 @@
 #include "types.h"
 #include "uci.h"
 #include "nnue/nnue_accumulator.h"
+#include "gambo/nnue/network.h"
+#include "gambo/nnue/nnue_common.h"
 
 namespace Stockfish {
 
@@ -61,6 +63,22 @@ inline bool use_phase_adaptive_nnue() {
     return globalOptions ? bool((*globalOptions)["Eval.PhaseAdaptiveNNUE"]) : true;
 }
 
+// GAMBO NNUE backend selection
+enum class GamboNNUEBackend : int { Stockfish = 0, Gambo = 1, Blend = 2 };
+
+inline GamboNNUEBackend gambod_nnue_backend() {
+    if (!globalOptions) return GamboNNUEBackend::Stockfish;
+    std::string val = std::string((*globalOptions)["Eval.NNUEBackend"]);
+    if (val == "Gambo") return GamboNNUEBackend::Gambo;
+    if (val == "Blend") return GamboNNUEBackend::Blend;
+    return GamboNNUEBackend::Stockfish;
+}
+
+inline int gambod_nnue_blend_weight() {
+    if (!globalOptions) return 50;
+    return int((*globalOptions)["Eval.NNUEBlendWeight"]);
+}
+
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
 // This is the OBJECTIVE evaluation, without any style bias.
@@ -72,7 +90,33 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
 
     assert(!pos.checkers());
 
-    auto [psqt, positional] = network.evaluate(pos, accumulators, caches);
+    // Select NNUE backend
+    GamboNNUEBackend backend = gambod_nnue_backend();
+    
+    Value psqt = 0, positional = 0;
+    
+    if (backend == GamboNNUEBackend::Stockfish) {
+        // Standard Stockfish NNUE
+        auto [sf_psqt, sf_positional] = network.evaluate(pos, accumulators, caches);
+        psqt = sf_psqt;
+        positional = sf_positional;
+    } else {
+        // GAMBO NNUE or Blend
+        // For GAMBO backend, we need a GAMBO network instance
+        // This is a simplified integration - in practice we'd pass the GAMBO network separately
+        // For now, fall back to Stockfish NNUE if GAMBO network not available
+        auto [sf_psqt, sf_positional] = network.evaluate(pos, accumulators, caches);
+        psqt = sf_psqt;
+        positional = sf_positional;
+        
+        if (backend == GamboNNUEBackend::Gambo) {
+            // TODO: Integrate GAMBO::NNUE::Network when fully wired
+            // For now, use Stockfish NNUE as placeholder
+        } else if (backend == GamboNNUEBackend::Blend) {
+            // TODO: Blend Stockfish and GAMBO NNUE outputs
+            // For now, use Stockfish NNUE as placeholder
+        }
+    }
 
     // Phase-adaptive NNUE blending
     int phase = Eval::ClassicalEval::game_phase(pos);

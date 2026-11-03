@@ -138,6 +138,17 @@ Engine::Engine(std::optional<std::string> path) :
     // Phase-adaptive NNUE blending toggle (for ablation testing)
     options.add("Eval.PhaseAdaptiveNNUE", Option(true));
 
+    // GAMBO NNUE backend selection (Stockfish, Gambo, Blend)
+    options.add("Eval.NNUEBackend", Option("Stockfish", [](const Option& o) {
+        std::string val = std::string(o);
+        if (val != "Stockfish" && val != "Gambo" && val != "Blend")
+            return std::string("Invalid NNUEBackend: must be Stockfish, Gambo, or Blend");
+        return std::nullopt;
+    }));
+
+    // Blend weight for Stockfish+Gambo blend mode (0-100, Stockfish weight)
+    options.add("Eval.NNUEBlendWeight", Option(50, 0, 100));
+
     options.add(  //
       "SyzygyPath", Option("", [](const Option& o) {
           Tablebases::init(o);
