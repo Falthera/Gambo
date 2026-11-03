@@ -61,23 +61,68 @@ void update_piece_coord_accumulator_full(Color                                 p
                                          const Position&                        pos,
                                          AccumulatorState<PieceCoordFeatureSet>& accumulatorState);
 
-void update_threats_accumulator_full(Color                               perspective,
-                                      const FeatureTransformer&           featureTransformer,
-                                      const Position&                     pos,
-                                      AccumulatorState<ThreatFeatureSet>& accumulatorState);
 template<bool Forward, typename FeatureSet>
-const AccumulatorState<T>& AccumulatorStack::latest() const noexcept {
+void update_accumulator_incremental(Color                               perspective,
+                                    const FeatureTransformer&           featureTransformer,
+                                    const Square                        ksq,
+                                    AccumulatorState<FeatureSet>&       target_state,
+                                    const AccumulatorState<FeatureSet>& computed);
+
+void update_accumulator_refresh_cache(Color                            perspective,
+                                      const FeatureTransformer&        featureTransformer,
+                                      const Position&                  pos,
+                                      AccumulatorState<PSQFeatureSet>& accumulatorState,
+                                      AccumulatorCaches&               cache);
+
+void update_king_safety_accumulator_refresh_cache(Color                               perspective,
+                                                  const FeatureTransformer&           featureTransformer,
+                                                  const Position&                     pos,
+                                                  AccumulatorState<KingSafetyFeatureSet>& accumulatorState);
+
+void update_piece_coord_accumulator_full(Color                                 perspective,
+                                         const FeatureTransformer&              featureTransformer,
+                                         const Position&                        pos,
+                                         AccumulatorState<PieceCoordFeatureSet>& accumulatorState);
+
+void update_threats_accumulator_full(Color                               perspective,
+                                     const FeatureTransformer&           featureTransformer,
+                                     const Position&                     pos,
+                                     AccumulatorState<ThreatFeatureSet>& accumulatorState);
+}  // namespace
+
+template<typename T>
+const AccumulatorState<T>& AccumulatorStack::latest<T>() const noexcept {
     return accumulators<T>()[size - 1];
 }  // namespace
 
 // Explicit template instantiations
-template const AccumulatorState<PSQFeatureSet>&           AccumulatorStack::latest() const noexcept;
-template const AccumulatorState<ThreatFeatureSet>&        AccumulatorStack::latest() const noexcept;
-template const AccumulatorState<KingSafetyFeatureSet>&    AccumulatorStack::latest() const noexcept;
-template const AccumulatorState<PieceCoordFeatureSet>&    AccumulatorStack::latest() const noexcept;
+template const AccumulatorState<PSQFeatureSet>&           AccumulatorStack::latest<PSQFeatureSet>() const noexcept;
+template const AccumulatorState<ThreatFeatureSet>&        AccumulatorStack::latest<ThreatFeatureSet>() const noexcept;
+template const AccumulatorState<KingSafetyFeatureSet>&    AccumulatorStack::latest<KingSafetyFeatureSet>() const noexcept;
+template const AccumulatorState<PieceCoordFeatureSet>&    AccumulatorStack::latest<PieceCoordFeatureSet>() const noexcept;
 
-template<typename T>
-AccumulatorState<T>& AccumulatorStack::mut_latest() noexcept {
+template AccumulatorState<PSQFeatureSet>&    AccumulatorStack::mut_latest<PSQFeatureSet>() noexcept;
+template AccumulatorState<ThreatFeatureSet>& AccumulatorStack::mut_latest<ThreatFeatureSet>() noexcept;
+template AccumulatorState<KingSafetyFeatureSet>& AccumulatorStack::mut_latest<KingSafetyFeatureSet>() noexcept;
+template AccumulatorState<PieceCoordFeatureSet>& AccumulatorStack::mut_latest<PieceCoordFeatureSet>() noexcept;
+
+template const std::array<AccumulatorState<PSQFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::accumulators<PSQFeatureSet>() const noexcept;
+template const std::array<AccumulatorState<ThreatFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::accumulators<ThreatFeatureSet>() const noexcept;
+template const std::array<AccumulatorState<KingSafetyFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::accumulators<KingSafetyFeatureSet>() const noexcept;
+template const std::array<AccumulatorState<PieceCoordFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::accumulators<PieceCoordFeatureSet>() const noexcept;
+
+template std::array<AccumulatorState<PSQFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::mut_accumulators<PSQFeatureSet>() noexcept;
+template std::array<AccumulatorState<ThreatFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::mut_accumulators<ThreatFeatureSet>() noexcept;
+template std::array<AccumulatorState<KingSafetyFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::mut_accumulators<KingSafetyFeatureSet>() noexcept;
+template std::array<AccumulatorState<PieceCoordFeatureSet>, AccumulatorStack::MaxSize>&
+AccumulatorStack::mut_accumulators<PieceCoordFeatureSet>() noexcept;
     return mut_accumulators<T>()[size - 1];
 }  // namespace
 
