@@ -229,11 +229,11 @@ inline int threat_category(const Position& pos, Color us, Move m, const Stack* s
     const Square ourKing   = pos.square<KING>(us);
     const Square from = m.from_sq();
     const Square to   = m.to_sq();
-    const Piece pc = m.moved_piece();
+    const Piece pc = pos.piece_on(from);
     const PieceType pt = type_of(pc);
 
     // Category 2: Checking move (highest priority for tactical relevance)
-    if (pos.gives_check(m, pos.checkers()))
+    if (pos.gives_check(m))
         return 2;
 
     // Category 1: King ring attack
@@ -309,7 +309,7 @@ inline MoveTypeClass move_type_class(const Position& pos, Move m, bool inCheck) 
         return MoveTypeClass::MT_PROMOTION;
     if (pos.capture_stage(m))
         return MoveTypeClass::MT_CAPTURE;
-    if (pos.gives_check(m, pos.checkers()))
+    if (pos.gives_check(m))
         return MoveTypeClass::MT_CHECK;
     if (inCheck)
         return MoveTypeClass::MT_EVASION;
@@ -376,14 +376,14 @@ inline bool upcoming_repetition(const Position& pos, Move m, int depth, const St
     // Check if the move would repeat a position in the near future
     // This is a simplified check - a full implementation would track the move
     // and resulting position to see if it leads to a 3-fold repetition
-    if (pos.is_draw())
+    if (pos.is_draw(ss ? ss->ply : 0))
         return true;
     
     // Check if the move is a "waiting" move that could lead to repetition
-    if (!pos.capture_stage(m) && !pos.gives_check(m, pos.checkers())) {
+    if (!pos.capture_stage(m) && !pos.gives_check(m)) {
         // Simple heuristic: if we're shuffling and the position is balanced
         // (no clear advantage), we might be heading towards repetition
-        if (pos.non_pawn_material() < 4000 && std::abs(pos.psqt_eval()) < 50)
+        if (pos.non_pawn_material() < 4000)
             return true;
     }
     

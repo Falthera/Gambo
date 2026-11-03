@@ -25,7 +25,7 @@
 #include <iosfwd>
 #include <string>
 
-#include "../nnue_common.h"
+#include "nnue_common.h"
 #include "architecture.h"
 
 namespace Gambo::NNUE {
