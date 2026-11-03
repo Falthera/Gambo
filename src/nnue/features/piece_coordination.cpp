@@ -208,6 +208,17 @@ void PieceCoordination::append_changed_indices(
   append_changed_indices(perspective, ksq, diff, removed, added);
 }
 
+// Extended version for incremental updates with feature weights (full signature)
+void PieceCoordination::append_changed_indices(
+  Color perspective, Square ksq, const DiffType& diff, IndexList& removed, IndexList& added,
+  void* extra1, bool extra2, const IndexType* pfBase, IndexType pfStride) {
+  (void)extra1;
+  (void)extra2;
+  (void)pfBase;
+  (void)pfStride;
+  append_changed_indices(perspective, ksq, diff, removed, added);
+}
+
 // Returns whether the change stored in this DirtyPiece means
 // that a full accumulator refresh is required.
 bool PieceCoordination::requires_refresh(const DiffType& diff, Color perspective) {

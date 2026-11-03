@@ -81,6 +81,11 @@ public:
         Color perspective, Square ksq, const DiffType& diff, IndexList& removed, IndexList& added,
         const IndexType* pfBase, IndexType pfStride);
 
+    // Extended version for incremental updates with feature weights (full signature)
+    static void append_changed_indices(
+        Color perspective, Square ksq, const DiffType& diff, IndexList& removed, IndexList& added,
+        void* extra1, bool extra2, const IndexType* pfBase, IndexType pfStride);
+
     // Returns whether the change stored in this DirtyPiece means
     // that a full accumulator refresh is required.
     static bool requires_refresh(const DiffType& diff, Color perspective);
