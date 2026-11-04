@@ -24,16 +24,9 @@
 
 #include <cstdint>
 
+// Include required Stockfish headers
 #include "../position.h"
 #include "../types.h"
-
-// Forward declarations
-namespace Stockfish {
-namespace Search {
-struct Stack;
-struct PVMoves;
-}
-}
 
 namespace Gambo::SID {
 
@@ -52,8 +45,8 @@ public:
     SearchInstabilityDetector() = default;
 
     // Update with current search state, returns instability level
-    InstabilityLevel update(const Position& pos, const Stockfish::Search::Stack* ss,
-                           int depth, Value currentScore, Value prevScore,
+    InstabilityLevel update(const Stockfish::Position& pos, const Stockfish::Search::Stack* ss,
+                           int depth, Stockfish::Value currentScore, Stockfish::Value prevScore,
                            const Stockfish::Search::PVMoves* pv, const Stockfish::Search::PVMoves* prevPV);
 
     // Get current instability metrics
@@ -83,7 +76,7 @@ private:
     int tacticalVolatility = 0;
     int totalInstability = 0;
     Stockfish::Search::PVMoves prevPV;
-    Value prevScore = Stockfish::VALUE_NONE;
+    Stockfish::Value prevScore = Stockfish::VALUE_NONE;
 };
 
 }  // namespace Gambo::SID

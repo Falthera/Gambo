@@ -108,32 +108,21 @@ Value to_corrected_static_eval(const Value v, const int cv) {
     return std::clamp(v + cv / 131072, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
 
-void update_correction_history(const Position& pos,
-                               Stack* const    ss,
-                               Search::Worker& workerThread,
-                               const int       bonus) {
-    const Move  m  = (ss - 1)->currentMove;
-    const Color us = pos.side_to_move();
-
-    constexpr int nonPawnWeight = 186;
-    auto&         shared        = workerThread.sharedHistory;
-
-    shared.pawn_correction_entry(pos)[us].pawn << bonus;
-    shared.minor_piece_correction_entry(pos)[us].minor << bonus * 152 / 128;
-    shared.nonpawn_correction_entry<WHITE>(pos)[us].nonPawnWhite << bonus * nonPawnWeight / 128;
-    shared.nonpawn_correction_entry<BLACK>(pos)[us].nonPawnBlack << bonus * nonPawnWeight / 128;
-
-    if (m.is_ok())
-    {
-        const Square to = m.to_sq();
-        const Piece  pc = pos.piece_on(to);
-        (*(ss - 2)->continuationCorrectionHistory)[pc][to] << bonus * 136 / 128;
-        (*(ss - 4)->continuationCorrectionHistory)[pc][to] << bonus * 68 / 128;
-    }
-}
-
 // Add a small random component to draw evaluations to avoid 3-fold blindness
 Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
+
+bool is_shuffling(Move move, Stack* const ss, const Position& pos) {
+    if (pos.capture_stage(move) || pos.rule50_count() < 10)
+        return false;
+    if (pos.state()->pliesFromNull < 6 || ss->ply < 20)
+        return false;
+    return move.from_sq() == (ss - 2)->currentMove.to_sq()
+        && (ss - 2)->currentMove.from_sq() == (ss - 4)->currentMove.to_sq();
+}
+
+}  // namespace
+
+// Forward declarations for helper functions used in search templates
 Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r50c);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
@@ -149,16 +138,10 @@ void update_all_stats(const Position& pos,
                       Depth           depth,
                       Move            ttMove);
 
-bool is_shuffling(Move move, Stack* const ss, const Position& pos) {
-    if (pos.capture_stage(move) || pos.rule50_count() < 10)
-        return false;
-    if (pos.state()->pliesFromNull < 6 || ss->ply < 20)
-        return false;
-    return move.from_sq() == (ss - 2)->currentMove.to_sq()
-        && (ss - 2)->currentMove.from_sq() == (ss - 4)->currentMove.to_sq();
-}
-
-}  // namespace
+void update_correction_history(const Position& pos,
+                               Stack* const    ss,
+                               Search::Worker& workerThread,
+                               const int       bonus);
 
 Search::Worker::Worker(SharedState&                    sharedState,
                        std::unique_ptr<ISearchManager> sm,
@@ -291,11 +274,11 @@ bool Search::Worker::iterative_deepening() {
         (ss - i)->continuationHistory =
           &continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
         (ss - i)->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
-        (ss - i)->threatMapHistory = &sharedHistories.begin()->second.threat_map_entry(rootPos);
-        (ss - i)->colourContinuationHistory = &sharedHistories.begin()->second.colour_continuation_entry(rootPos);
-        (ss - i)->moveTypeHistory = &sharedHistories.begin()->second.move_type_entry(rootPos);
-        (ss - i)->moveTypeCaptureHistory = &sharedHistories.begin()->second.move_type_capture_entry(rootPos);
-        (ss - i)->qSearchCaptureHistory = &sharedHistories.begin()->second.qsearch_capture_entry(rootPos);
+        (ss - i)->threatMapHistory = &sharedHistory.threat_map_entry(rootPos);
+        (ss - i)->colourContinuationHistory = &sharedHistory.colour_continuation_entry(rootPos);
+        (ss - i)->moveTypeHistory = &sharedHistory.move_type_entry(rootPos);
+        (ss - i)->moveTypeCaptureHistory = &sharedHistory.move_type_capture_entry(rootPos);
+        (ss - i)->qSearchCaptureHistory = &sharedHistory.qsearch_capture_entry(rootPos);
         (ss - i)->staticEval                    = VALUE_NONE;
         (ss - i)->extensionAccumulator          = 0;
         (ss - i)->singularExtensionCount        = 0;
@@ -1120,7 +1103,7 @@ moves_loop:  // When in check, search starts here
         int history = (*contHist[0])[movedPiece][move.to_sq()]
                     + (*contHist[1])[movedPiece][move.to_sq()]
                     + sharedHistory.pawn_entry(pos)[movedPiece][move.to_sq()];
-        if (Search::use_move_type_history())
+        if (Stockfish::use_move_type_history())
         {
             Search::MoveTypeClass mt = Search::move_type_class(pos, move, ss->inCheck);
             int mtIdx = static_cast<int>(mt);
@@ -1191,8 +1174,8 @@ moves_loop:  // When in check, search starts here
                             + (*contHist[1])[movedPiece][move.to_sq()]
                             + sharedHistory.pawn_entry(pos)[movedPiece][move.to_sq()];
 
-                // MTCH: Add move type history to history score
-if (use_move_type_history())
+// MTCH: Add move type history to history score
+                if (Stockfish::use_move_type_history())
                 {
                     Search::MoveTypeClass mt = Search::move_type_class(pos, move, ss->inCheck);
                     int mtIdx = static_cast<int>(mt);
@@ -1621,7 +1604,7 @@ if (use_move_type_history())
         captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)] << 901;
 
         // TMIHH for capture moves
-        if (use_threat_map_history())
+        if (Stockfish::use_threat_map_history())
         {
             int tcat = threat_category(pos, pos.side_to_move(), Move::from_squares(prevSq, prevSq, pos.piece_on(prevSq)), ss);
             if (tcat > 0)
@@ -1982,7 +1965,6 @@ Value Search::Worker::evaluate(const Position& pos) {
                           optimism[pos.side_to_move()]);
 }
 
-namespace {
 // Adjusts a mate or TB score from "plies to mate from the root" to
 // "plies to mate from the current position". Standard scores are unchanged.
 // The function is called before storing a value in the transposition table.
@@ -2069,7 +2051,7 @@ void update_all_stats(const Position& pos,
         captureHistory[movedPiece][bestMove.to_sq()][capturedPiece] << bonus * 1366 / 1024;
 
         // TMIHH for best capture move
-        if (use_threat_map_history())
+        if (Stockfish::use_threat_map_history())
         {
             int tcat = threat_category(pos, pos.side_to_move(), bestMove, ss);
             if (tcat > 0)
@@ -2093,7 +2075,7 @@ void update_all_stats(const Position& pos,
         captureHistory[movedPiece][move.to_sq()][capturedPiece] << -malus * 1518 / 1024;
 
         // TMIHH for refuted capture moves
-        if (use_threat_map_history())
+        if (Stockfish::use_threat_map_history())
         {
             int tcat = threat_category(pos, pos.side_to_move(), move, ss);
             if (tcat > 0)
@@ -2168,8 +2150,7 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
                     auto& mpchEntry = (*(ss - i)->colourContinuationHistory)[prev2Pc][prev2To][prev1Pc][prev1To][pc][to];
                     mpchEntry << (bonus * 256 / 1024);
                 }
-            }
-        }
+}
     }
 }
 
@@ -2190,7 +2171,7 @@ void update_quiet_histories(
       << bonus * (bonus > -7 ? 1038 : 525) / 1024;
 
     // TMIHH — Threat-Map Indexed History Heuristic
-    if (use_threat_map_history())
+    if (Stockfish::use_threat_map_history())
     {
         int tcat = threat_category(pos, us, move, ss);
         if (tcat > 0)
@@ -2202,6 +2183,31 @@ void update_quiet_histories(
         }
     }
 }
+
+// Updates move sorting heuristics
+
+void update_correction_history(const Position& pos,
+                               Stack* const    ss,
+                               Search::Worker& workerThread,
+                               const int       bonus) {
+    const Move  m  = (ss - 1)->currentMove;
+    const Color us = pos.side_to_move();
+
+    constexpr int nonPawnWeight = 186;
+    auto&         shared        = workerThread.sharedHistory;
+
+    shared.pawn_correction_entry(pos)[us].pawn << bonus;
+    shared.minor_piece_correction_entry(pos)[us].minor << bonus * 152 / 128;
+    shared.nonpawn_correction_entry<WHITE>(pos)[us].nonPawnWhite << bonus * nonPawnWeight / 128;
+    shared.nonpawn_correction_entry<BLACK>(pos)[us].nonPawnBlack << bonus * nonPawnWeight / 128;
+
+    if (m.is_ok())
+    {
+        const Square to = m.to_sq();
+        const Piece  pc = pos.piece_on(to);
+        (*(ss - 2)->continuationCorrectionHistory)[pc][to] << bonus * 136 / 128;
+        (*(ss - 4)->continuationCorrectionHistory)[pc][to] << bonus * 68 / 128;
+    }
 }
 
 // When playing with strength handicap, choose the best move among a set of
