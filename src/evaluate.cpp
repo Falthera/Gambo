@@ -34,10 +34,6 @@ inline int clamp_classical_term(int v, const char* termName) {
     }
     return v;
 }
-inline std::string pgo_profile_path() {
-    if (!globalOptions) return "";
-    return std::string((*globalOptions)["GAMBO.PGOProfile"]);
-}
 
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
