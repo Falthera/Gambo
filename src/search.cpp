@@ -1178,13 +1178,13 @@ moves_loop:  // When in check, search starts here
         int delta = beta - alpha;
 
         // LMRC: Context-aware LMR reduction
-        int threatCat = Search::threat_category(pos, us, move, ss);
+        int threatCat = threat_category(pos, us, move, ss);
         int history = (*contHist[0])[movedPiece][move.to_sq()]
                     + (*contHist[1])[movedPiece][move.to_sq()]
                     + sharedHistory.pawn_entry(pos)[static_cast<size_t>(movedPiece)][static_cast<size_t>(move.to_sq())];
         if (Stockfish::use_move_type_history())
         {
-            Search::MoveTypeClass mt = Search::move_type_class(pos, move, ss->inCheck);
+            MoveTypeClass mt = move_type_class(pos, move, ss->inCheck);
             int mtIdx = static_cast<int>(mt);
             history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static_cast<size_t>(movedPiece)][static_cast<size_t>(move.to_sq())] / 4;
         }
@@ -1231,12 +1231,12 @@ moves_loop:  // When in check, search starts here
                 
                 // Check for sacrifice compensation - don't prune if there's attacking compensation
                 int compensation = 0;
-                if (Search::ultra_aggressive())
+                if (ultra_aggressive())
                 {
                     int materialSacrificed = PieceValue[movedPiece] - PieceValue[capturedPiece];
                     if (materialSacrificed > 0)
                     {
-                        compensation = Search::sacrifice_compensation(pos, us, materialSacrificed);
+                        compensation = sacrifice_compensation(pos, us, materialSacrificed);
                         // Reduce margin if we have compensation
                         margin = std::max(0, margin - compensation / 4);
                     }
@@ -1256,7 +1256,7 @@ moves_loop:  // When in check, search starts here
 // MTCH: Add move type history to history score
                 if (Stockfish::use_move_type_history())
                 {
-                    Search::MoveTypeClass mt = Search::move_type_class(pos, move, ss->inCheck);
+MoveTypeClass mt = move_type_class(pos, move, ss->inCheck);
                     int mtIdx = static_cast<int>(mt);
 history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static_cast<size_t>(movedPiece)][static_cast<size_t>(move.to_sq())] / 4;
                 }
@@ -1267,9 +1267,9 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
 
                 history += 64 * mainHistory[us][move.raw()] / 32;
 
-                // HGQMP: History-Guided Quiet Move Pruning
-                int threatCat = Search::threat_category(pos, us, move, ss);
-                if (Search::prune_quiet_move(pos, ss, move, moveCount, depth, history, ss->inCheck, ss->ttPv, threatCat))
+// HGQMP: History-Guided Quiet Move Pruning
+                int threatCat = threat_category(pos, us, move, ss);
+                if (prune_quiet_move(pos, ss, move, moveCount, depth, history, ss->inCheck, ss->ttPv, threatCat))
                     continue;
 
                 // (*Scaler): Generally, lower divisors scale well
@@ -1295,14 +1295,14 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
                 int seeMargin = -25 * lmrDepth * lmrDepth - attackBias;
                 
                 // Check for sacrifice compensation for quiet moves entering king zone
-                if (Search::ultra_aggressive() && !capture && !givesCheck)
+                if (ultra_aggressive() && !capture && !givesCheck)
                 {
                     const Square enemyKing = pos.square<KING>(~us);
                     const Bitboard enemyKingZone = attacks_bb<KING>(enemyKing) | square_bb(enemyKing);
                     if (enemyKingZone & square_bb(move.to_sq()))
                     {
                         // Moving into enemy king zone - check compensation
-                        int compensation = Search::sacrifice_compensation(pos, us, 0);  // 0 = no material sac, just positional
+                        int compensation = sacrifice_compensation(pos, us, 0);  // 0 = no material sac, just positional
                         if (compensation > 20)
                         {
                             // Reduce SEE margin requirement for moves with compensation
@@ -1627,7 +1627,6 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
             else
                 quietsSearched.push_back(move);
         }
-    }
 
     // Step 21. Check for mate and stalemate
     // All legal moves have been searched and if there are no legal moves, it
@@ -2103,7 +2102,7 @@ void SearchManager::check_time(Worker& worker) {
     if (ponder)
         return;
 
-    const int sharpness = Search::tactical_volatility(worker.rootPos, worker.rootPos.side_to_move());
+    const int sharpness = tactical_volatility(worker.rootPos, worker.rootPos.side_to_move());
 
     // Search instability detection: track PV changes and score fluctuations
     int instability = 0;
@@ -2125,7 +2124,7 @@ void SearchManager::check_time(Worker& worker) {
         }
     }
 
-    const double timeScale = Search::ultra_aggressive()
+    const double timeScale = ultra_aggressive()
                            ? 1.0 + std::min(0.35, sharpness / 200.0)
                            : 1.0;
 
@@ -2245,7 +2244,7 @@ void syzygy_extend_pv(const OptionsMap&         options,
         // This will break ties for moves with equal DTZ in rank_root_moves.
         std::stable_sort(
           legalMoves.begin(), legalMoves.end(),
-          [](const Search::RootMove& a, const Search::RootMove& b) { return a.tbRank > b.tbRank; });
+          [](const RootMove& a, const RootMove& b) { return a.tbRank > b.tbRank; });
 
         // The winning side tries to minimize DTZ, the losing side maximizes it
         TB::Config config = TB::rank_root_moves(options, pos, legalMoves, true, time_abort);
