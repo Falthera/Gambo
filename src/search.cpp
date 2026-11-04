@@ -55,17 +55,15 @@
 
 namespace Stockfish {
 
+namespace TB = Tablebases;
+
+namespace Search {
+
 static constexpr std::array<int, 16> lmrDivisor = {3307, 2930, 2874, 2818, 3215, 3225, 3224, 2782,
                                                    2858, 2919, 3088, 3275, 3180, 2868, 3006, 3599};
 
-namespace TB = Tablebases;
-
-using namespace Search;
-
 constexpr int SEARCHEDLIST_CAPACITY = 32;
 using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
-
-namespace {
 
 constexpr uint64_t NODES_LIMIT_OUTPUT = 10'000'000;
 
@@ -214,9 +212,24 @@ void update_correction_history(const Position& pos,
     (void)pos; (void)ss; (void)workerThread; (void)bonus;
 }
 
-}  // namespace
+void update_all_stats(const Position& pos,
+                      Stack*          ss,
+                      Search::Worker& workerThread,
+                      Move            bestMove,
+                      Square          prevSq,
+                      SearchedList&   quietsSearched,
+                      SearchedList&   capturesSearched,
+                      Depth           depth,
+                      Move            ttMove) {
+    // Implementation here if needed
+    (void)pos; (void)ss; (void)workerThread; (void)bestMove; (void)prevSq; (void)quietsSearched; (void)capturesSearched; (void)depth; (void)ttMove;
+}
 
-namespace Search {
+void update_quiet_histories(
+   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus) {
+    // Implementation here if needed
+    (void)pos; (void)ss; (void)workerThread; (void)move; (void)bonus;
+}
 
 // Forward declaration for syzygy_extend_pv
 void syzygy_extend_pv(const OptionsMap&, const LimitsType&, Position&, RootMove&, Value&);
