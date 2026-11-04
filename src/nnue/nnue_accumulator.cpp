@@ -243,11 +243,8 @@ void AccumulatorStack::evaluate(const Position&           pos,
     evaluate_side<PieceCoordFeatureSet>(BLACK, pos, featureTransformer, cache);
 }
 
-}  // namespace Stockfish::Eval::NNUE
-
 
 // Explicit template instantiations for the accessor methods
-namespace Stockfish::Eval::NNUE {
 
 template const AccumulatorState<PSQFeatureSet>&           AccumulatorStack::latest<PSQFeatureSet>() const noexcept;
 template const AccumulatorState<ThreatFeatureSet>&        AccumulatorStack::latest<ThreatFeatureSet>() const noexcept;
@@ -297,4 +294,5 @@ template void AccumulatorStack::evaluate_side<PSQFeatureSet>(Color, const Positi
 template void AccumulatorStack::evaluate_side<ThreatFeatureSet>(Color, const Position&, const FeatureTransformer&, AccumulatorCaches&) noexcept;
 template void AccumulatorStack::evaluate_side<KingSafetyFeatureSet>(Color, const Position&, const FeatureTransformer&, AccumulatorCaches&) noexcept;
 template void AccumulatorStack::evaluate_side<PieceCoordFeatureSet>(Color, const Position&, const FeatureTransformer&, AccumulatorCaches&) noexcept;
+
 }  // namespace Stockfish::Eval::NNUE

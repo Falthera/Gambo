@@ -60,12 +60,6 @@ static constexpr std::array<int, 16> lmrDivisor = {3307, 2930, 2874, 2818, 3215,
 
 namespace TB = Tablebases;
 
-void syzygy_extend_pv(const OptionsMap&            options,
-                      const Search::LimitsType&    limits,
-                      Stockfish::Position&         pos,
-                      Stockfish::Search::RootMove& rootMove,
-                      Value&                       v);
-
 using namespace Search;
 
 constexpr int SEARCHEDLIST_CAPACITY = 32;
@@ -353,8 +347,8 @@ bool Worker::iterative_deepening() {
     for (int i = 7; i > 0; --i)
     {
         (ss - i)->continuationHistory =
-          &continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
-        (ss - i)->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
+          &continuationHistory[0][0][static_cast<size_t>(NO_PIECE)][0];  // Use as a sentinel
+        (ss - i)->continuationCorrectionHistory = &continuationCorrectionHistory[static_cast<size_t>(NO_PIECE)][0];
         (ss - i)->threatMapHistory = &sharedHistory.threatMapHistory;
         (ss - i)->colourContinuationHistory = &sharedHistory.colourContinuationHistory;
         (ss - i)->moveTypeHistory = &sharedHistory.moveTypeHistory;
@@ -690,17 +684,17 @@ void Worker::do_move(
     {
         ss->currentMove = move;
         ss->continuationHistory =
-          &continuationHistory[ss->inCheck][capture][dirtyPiece.pc][move.to_sq()];
+          &continuationHistory[static_cast<size_t>(ss->inCheck)][static_cast<size_t>(capture)][static_cast<size_t>(dirtyPiece.pc)][static_cast<size_t>(move.to_sq())];
         ss->continuationCorrectionHistory =
-          &continuationCorrectionHistory[dirtyPiece.pc][move.to_sq()];
+          &continuationCorrectionHistory[static_cast<size_t>(dirtyPiece.pc)][static_cast<size_t>(move.to_sq())];
     }
 }
 
 void Worker::do_null_move(Position& pos, StateInfo& st, Stack* const ss) {
     pos.do_null_move(st);
     ss->currentMove                   = Move::null();
-    ss->continuationHistory           = &continuationHistory[0][0][NO_PIECE][0];
-    ss->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
+    ss->continuationHistory           = &continuationHistory[0][0][static_cast<size_t>(NO_PIECE)][0];
+    ss->continuationCorrectionHistory = &continuationCorrectionHistory[static_cast<size_t>(NO_PIECE)][0];
 }
 
 void Worker::undo_move(Position& pos, const Move move) {
@@ -738,6 +732,8 @@ void Worker::clear() {
     refreshTable.clear(network[numaAccessToken]);
 }
 
+
+namespace Search {
 
 // Main search function for both PV and non-PV nodes
 template<NodeType nodeType>
@@ -999,7 +995,7 @@ Value Worker::search(
         mainHistory[~us][((ss - 1)->currentMove).raw()] << evalDiff * 10;
         if (!ttHit && type_of(pos.piece_on(prevSq)) != PAWN
             && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << evalDiff * 13;
+            sharedHistory.pawn_entry(pos)[static_cast<size_t>(pos.piece_on(prevSq))][static_cast<size_t>(prevSq)] << evalDiff * 13;
     }
 
 
@@ -1185,12 +1181,12 @@ moves_loop:  // When in check, search starts here
         int threatCat = Search::threat_category(pos, us, move, ss);
         int history = (*contHist[0])[movedPiece][move.to_sq()]
                     + (*contHist[1])[movedPiece][move.to_sq()]
-                    + sharedHistory.pawn_entry(pos)[movedPiece][move.to_sq()];
+                    + sharedHistory.pawn_entry(pos)[static_cast<size_t>(movedPiece)][static_cast<size_t>(move.to_sq())];
         if (Stockfish::use_move_type_history())
         {
             Search::MoveTypeClass mt = Search::move_type_class(pos, move, ss->inCheck);
             int mtIdx = static_cast<int>(mt);
-            history += sharedHistory.move_type_entry(pos)[mtIdx][movedPiece][move.to_sq()] / 4;
+            history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static_cast<size_t>(movedPiece)][static_cast<size_t>(move.to_sq())] / 4;
         }
         
         int r = this->contextual_reduction(pos, ss, improving, depth, moveCount, delta, history, threatCat, ss->ttPv);
@@ -1216,7 +1212,7 @@ moves_loop:  // When in check, search starts here
             if (capture || givesCheck)
             {
                 Piece capturedPiece = pos.piece_on(move.to_sq());
-                int   captHist = captureHistory[movedPiece][move.to_sq()][type_of(capturedPiece)];
+                int   captHist = captureHistory[static_cast<size_t>(movedPiece)][static_cast<size_t>(move.to_sq())][static_cast<size_t>(type_of(capturedPiece))];
 
                 // Futility pruning for captures
                 if (!givesCheck && lmrDepth < 7)
@@ -1255,14 +1251,14 @@ moves_loop:  // When in check, search starts here
                 int dIndex  = std::min(int(depth), int(lmrDivisor.size())) - 1;
                 int history = (*contHist[0])[movedPiece][move.to_sq()]
                             + (*contHist[1])[movedPiece][move.to_sq()]
-                            + sharedHistory.pawn_entry(pos)[movedPiece][move.to_sq()];
+                            + sharedHistory.pawn_entry(pos)[static_cast<size_t>(movedPiece)][static_cast<size_t>(move.to_sq())];
 
 // MTCH: Add move type history to history score
                 if (Stockfish::use_move_type_history())
                 {
                     Search::MoveTypeClass mt = Search::move_type_class(pos, move, ss->inCheck);
                     int mtIdx = static_cast<int>(mt);
-                    history += sharedHistory.move_type_entry(pos)[mtIdx][movedPiece][move.to_sq()] / 4;
+history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static_cast<size_t>(movedPiece)][static_cast<size_t>(move.to_sq())] / 4;
                 }
 
                 // Continuation history based pruning
@@ -1419,6 +1415,8 @@ moves_loop:  // When in check, search starts here
         // Add extension to new depth
         newDepth += extension;
 
+        int r = 0;  // Reduction value
+
         // Decrease reduction for PvNodes (*Scaler)
         if (ss->ttPv)
             r -= 2766 + PvNode * 1017 + (ttData.value > alpha) * 838
@@ -1447,7 +1445,7 @@ moves_loop:  // When in check, search starts here
 
         if (capture)
             ss->statScore = 809 * int(PieceValue[pos.captured_piece()]) / 128
-                          + captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())];
+                          + captureHistory[static_cast<size_t>(movedPiece)][static_cast<size_t>(move.to_sq())][static_cast<size_t>(type_of(pos.captured_piece()))];
         else
             ss->statScore = 2 * mainHistory[us][move.raw()]
                           + (*contHist[0])[movedPiece][move.to_sq()]
@@ -1636,7 +1634,7 @@ moves_loop:  // When in check, search starts here
     // must be a mate or a stalemate. If we are in a singular extension search then
     // return a fail low score.
 
-    assert(moveCount || !ss->inCheck || excludedMove || !MoveList<LEGAL>(pos).size());
+    assert(moveCount || !ss->inCheck || excludedMove || !MoveList<GenType::LEGAL>(pos).size());
 
     // Adjust best value for fail high cases
     if (bestValue >= beta && !is_decisive(bestValue) && !is_decisive(alpha))
@@ -1676,7 +1674,7 @@ moves_loop:  // When in check, search starts here
         mainHistory[~us][((ss - 1)->currentMove).raw()] << scaledBonus * 234 / 32768;
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << scaledBonus * 322 / 8192;
+            sharedHistory.pawn_entry(pos)[static_cast<size_t>(pos.piece_on(prevSq))][static_cast<size_t>(prevSq)] << scaledBonus * 322 / 8192;
     }
 
     // Bonus for prior capture countermove that caused the fail low
@@ -1684,7 +1682,7 @@ moves_loop:  // When in check, search starts here
     {
         Piece capturedPiece = pos.captured_piece();
         assert(capturedPiece != NO_PIECE);
-        captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)] << 901;
+        captureHistory[static_cast<size_t>(pos.piece_on(prevSq))][static_cast<size_t>(prevSq)][static_cast<size_t>(type_of(capturedPiece))] << 901;
 
         // TMIHH for capture moves
         if (Stockfish::use_threat_map_history())
@@ -1692,7 +1690,7 @@ moves_loop:  // When in check, search starts here
             int tcat = threat_category(pos, pos.side_to_move(), Move::from_squares(prevSq, prevSq, pos.piece_on(prevSq)), ss);
             if (tcat > 0)
             {
-                auto& tmihhEntry = workerThread.sharedHistory.threat_map_entry(pos)[tcat][pos.piece_on(prevSq)][prevSq];
+                auto& tmihhEntry = sharedHistory.threat_map_entry(pos)[static_cast<size_t>(tcat)][static_cast<size_t>(pos.piece_on(prevSq))][static_cast<size_t>(prevSq)];
                 tmihhEntry << 901;
             }
         }
@@ -1965,7 +1963,7 @@ Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
     {
         if (ss->inCheck)  // Checkmate!
         {
-            assert(!MoveList<LEGAL>(pos).size());
+            assert(!MoveList<GenType::LEGAL>(pos).size());
             return mated_in(ss->ply);  // Plies to mate from the root
         }
 
@@ -1973,7 +1971,7 @@ Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
         Color us = pos.side_to_move();
         if (!(pawn_single_push_bb(us, pos.pieces(us, PAWN)) & ~pos.pieces())
             && !pos.non_pawn_material(us) && type_of(pos.captured_piece()) >= KNIGHT
-            && !MoveList<LEGAL>(pos).size())
+            && !MoveList<GenType::LEGAL>(pos).size())
             bestValue = VALUE_DRAW;
     }
 
@@ -2187,7 +2185,7 @@ void syzygy_extend_pv(const OptionsMap&         options,
         Move& pvMove = rootMove.pv[ply];
 
         RootMoves legalMoves;
-        for (const auto& m : MoveList<LEGAL>(pos))
+        for (const auto& m : MoveList<GenType::LEGAL>(pos))
             legalMoves.emplace_back(m);
 
         TB::Config config = TB::rank_root_moves(options, pos, legalMoves, false, time_abort);
@@ -2227,14 +2225,14 @@ void syzygy_extend_pv(const OptionsMap&         options,
             break;
 
         RootMoves legalMoves;
-        for (const auto& m : MoveList<LEGAL>(pos))
+        for (const auto& m : MoveList<GenType::LEGAL>(pos))
         {
             auto&     rm = legalMoves.emplace_back(m);
             StateInfo tmpSI;
             pos.do_move(m, tmpSI);
             // Give a score of each move to break DTZ ties restricting opponent mobility,
             // but not giving the opponent a capture.
-            for (const auto& mOpp : MoveList<LEGAL>(pos))
+            for (const auto& mOpp : MoveList<GenType::LEGAL>(pos))
                 rm.tbRank -= pos.capture(mOpp) ? 100 : 1;
             pos.undo_move(m);
         }
@@ -2371,7 +2369,7 @@ bool RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& po
     if (!pos.is_draw(1))
     {
         auto [ttHit, ttData, ttWriter] = tt.probe(pos.key());
-        if (ttHit && MoveList<LEGAL>(pos).contains(ttData.move))
+        if (ttHit && MoveList<GenType::LEGAL>(pos).contains(ttData.move))
             pv.push_back(ttData.move);
     }
 

@@ -27,6 +27,7 @@
 // Include required Stockfish headers
 #include "../position.h"
 #include "../types.h"
+#include "../search.h"
 
 namespace Gambo::PCE {
 

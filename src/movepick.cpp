@@ -30,6 +30,10 @@
 
 namespace Stockfish {
 
+using Stockfish::use_qsearch_capture_history;
+using Stockfish::use_move_type_history;
+using Stockfish::use_threat_map_history;
+
 namespace {
 
 enum Stages {
@@ -242,13 +246,13 @@ if constexpr (Type == CAPTURES)
                 m.value = (*captureHistory)[pc][to][type_of(capturedPiece)]
                         + 7 * int(PieceValue[capturedPiece]);
 
-                // SEE-GCP: Classify capture by SEE value
-                int seeValue = pos.see(m);
-                Search::SEEClass seeClass = Search::see_class(pos, m, seeValue);
-                if (Stockfish::use_qsearch_capture_history() && qSearchCaptureHistory)
-                {
-                    int seeClassIdx = static_cast<int>(seeClass);
-                    m.value += (*qSearchCaptureHistory)[pc][to][type_of(capturedPiece)] / 4;
+// SEE-GCP: Classify capture by SEE value
+            int seeValue = pos.see(m);
+            Search::SEEClass seeClass = Search::see_class(pos, m, seeValue);
+            if (use_qsearch_capture_history() && qSearchCaptureHistory)
+            {
+                int seeClassIdx = static_cast<int>(seeClass);
+                m.value += (*qSearchCaptureHistory)[static_cast<size_t>(pc)][static_cast<size_t>(to)][static_cast<size_t>(type_of(capturedPiece))] / 4;
                     // Boost winning captures
                     if (seeClass == Search::SEEClass::SEE_WINNING)
                         m.value += 1024;
@@ -284,13 +288,13 @@ else if constexpr (Type == QUIETS)
                 m.value += (*continuationHistory[3])[pc][to];
                 m.value += (*continuationHistory[5])[pc][to];
 
-                // MTCH: Move-Type Conditioned History
-                if (Stockfish::use_move_type_history() && moveTypeHistory)
-                {
-                    Search::MoveTypeClass mt = Search::move_type_class(pos, m, false);
-                    int mtIdx = static_cast<int>(mt);
-                    m.value += (*moveTypeHistory)[mtIdx][pc][to] / 2;
-                }
+// MTCH: Move-Type Conditioned History
+            if (use_move_type_history() && moveTypeHistory)
+            {
+                Search::MoveTypeClass mt = Search::move_type_class(pos, m, false);
+                int mtIdx = static_cast<int>(mt);
+                m.value += (*moveTypeHistory)[static_cast<size_t>(mtIdx)][static_cast<size_t>(pc)][static_cast<size_t>(to)] / 2;
+            }
 
                 // bonus for checks
                 m.value += ((pos.check_squares(pt) & to) && pos.see_ge(m, -75)) * 16384;
@@ -373,7 +377,7 @@ top:
         endCur = endCaptures = score<CAPTURES>(ml);
 
         // CHQO: SEE-GCP partitioning for qsearch captures
-        if (Stockfish::use_qsearch_capture_history() && qSearchCaptureHistory)
+        if (use_qsearch_capture_history() && qSearchCaptureHistory)
         {
             for (ExtMove* m = cur; m < endCur; ++m)
             {
@@ -395,7 +399,7 @@ top:
                 Piece pc = pos.moved_piece(*m);
                 Square to = m->to_sq();
                 Piece captured = pos.piece_on(to);
-                m->value += (*qSearchCaptureHistory)[pc][to][type_of(captured)] / 2;
+                m->value += (*qSearchCaptureHistory)[static_cast<size_t>(pc)][static_cast<size_t>(to)][static_cast<size_t>(type_of(captured))] / 2;
             }
         }
 
