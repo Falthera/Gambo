@@ -120,6 +120,8 @@ bool is_shuffling(Move move, Stack* const ss, const Position& pos) {
         && (ss - 2)->currentMove.from_sq() == (ss - 4)->currentMove.to_sq();
 }
 
+}  // namespace
+
 // Forward declarations for helper functions used in search templates
 Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r50c);
@@ -178,7 +180,7 @@ Value value_from_tt(Value v, int ply, int r50c) {
 
         // Downgrade a potentially false TB score.
         if (VALUE_TB + v > 100 - r50c)
-            return VALUE_TB_LOSS_IN_MAX_PLY + 1;
+            return VALUE_TB_LOSS_IN_MAX_PLY + 1.
 
         return v + ply;
     }
