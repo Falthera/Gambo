@@ -212,25 +212,6 @@ void update_correction_history(const Position& pos,
     (void)pos; (void)ss; (void)workerThread; (void)bonus;
 }
 
-void update_all_stats(const Position& pos,
-                      Stack*          ss,
-                      Search::Worker& workerThread,
-                      Move            bestMove,
-                      Square          prevSq,
-                      SearchedList&   quietsSearched,
-                      SearchedList&   capturesSearched,
-                      Depth           depth,
-                      Move            ttMove) {
-    // Implementation here if needed
-    (void)pos; (void)ss; (void)workerThread; (void)bestMove; (void)prevSq; (void)quietsSearched; (void)capturesSearched; (void)depth; (void)ttMove;
-}
-
-void update_quiet_histories(
-   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus) {
-    // Implementation here if needed
-    (void)pos; (void)ss; (void)workerThread; (void)move; (void)bonus;
-}
-
 // Forward declaration for syzygy_extend_pv
 void syzygy_extend_pv(const OptionsMap&, const LimitsType&, Position&, RootMove&, Value&);
 
