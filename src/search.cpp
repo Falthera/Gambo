@@ -728,12 +728,9 @@ void Worker::clear() {
 
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int(2834 / 128.0 * std::log(i));
-
-    refreshTable.clear(network[numaAccessToken]);
+refreshTable.clear(network[numaAccessToken]);
 }
 
-
-namespace Search {
 
 // Main search function for both PV and non-PV nodes
 template<NodeType nodeType>
@@ -1686,7 +1683,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
         // TMIHH for capture moves
         if (Stockfish::use_threat_map_history())
         {
-            int tcat = threat_category(pos, pos.side_to_move(), Move::from_squares(prevSq, prevSq, pos.piece_on(prevSq)), ss);
+            int tcat = threat_category(pos, pos.side_to_move(), Move::make(prevSq, prevSq), ss);
             if (tcat > 0)
             {
                 auto& tmihhEntry = sharedHistory.threat_map_entry(pos)[static_cast<size_t>(tcat)][static_cast<size_t>(pos.piece_on(prevSq))][static_cast<size_t>(prevSq)];
