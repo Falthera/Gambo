@@ -158,7 +158,9 @@ MovePicker::MovePicker(const Position&                   p,
                        const ButterflyHistory*           mh,
                        const LowPlyHistory*              lph,
                        const CapturePieceToHistory*      cph,
+                       const PawnHistory*                ph,
                        const PieceToHistory**            ch,
+                       const SharedHistories*            sh,
                        const ThreatMapHistory*           tmh,
                        const ColourContinuationHistory*  cch,
                        const MoveTypeHistory*            mth,
@@ -169,7 +171,9 @@ MovePicker::MovePicker(const Position&                   p,
     mainHistory(mh),
     lowPlyHistory(lph),
     captureHistory(cph),
+    pawnHistory(ph),
     continuationHistory(ch),
+    sharedHistories(sh),
     threatMapHistory(tmh),
     colourContinuationHistory(cch),
     moveTypeHistory(mth),
@@ -273,7 +277,7 @@ else if constexpr (Type == QUIETS)
             {
                 // histories
                 m.value = 2 * (*mainHistory)[us][m.raw()];
-                m.value += 2 * (*pawnHistory)[pc][to];
+                m.value += 2 * sharedHistories->pawn_entry(pos)[pc][to];
                 m.value += (*continuationHistory[0])[pc][to];
                 m.value += (*continuationHistory[1])[pc][to];
                 m.value += (*continuationHistory[2])[pc][to];

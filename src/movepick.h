@@ -44,7 +44,9 @@ class MovePicker {
                const ButterflyHistory*,
                const LowPlyHistory*,
                const CapturePieceToHistory*,
+               const PawnHistory*,
                const PieceToHistory**,
+               const SharedHistories*,
                const ThreatMapHistory*,
                const ColourContinuationHistory*,
                const MoveTypeHistory*,
@@ -67,7 +69,9 @@ class MovePicker {
     const ButterflyHistory*          mainHistory;
     const LowPlyHistory*             lowPlyHistory;
     const CapturePieceToHistory*     captureHistory;
+    const PawnHistory*               pawnHistory;
     const PieceToHistory**           continuationHistory;
+    const SharedHistories*           sharedHistories;
     const ThreatMapHistory*          threatMapHistory;
     const ColourContinuationHistory* colourContinuationHistory;
     const MoveTypeHistory*           moveTypeHistory;

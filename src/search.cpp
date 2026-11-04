@@ -68,12 +68,12 @@ void syzygy_extend_pv(const OptionsMap&            options,
 
 using namespace Search;
 
+constexpr int SEARCHEDLIST_CAPACITY = 32;
+using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
+
 namespace {
 
 constexpr uint64_t NODES_LIMIT_OUTPUT = 10'000'000;
-
-constexpr int SEARCHEDLIST_CAPACITY = 32;
-using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
 
 // (*Scalers):
 // The values with Scaler asterisks have proven non-linear scaling.
@@ -1052,7 +1052,8 @@ moves_loop:  // When in check, search starts here
       (ss - 4)->continuationHistory, (ss - 5)->continuationHistory, (ss - 6)->continuationHistory};
 
 
-    MovePicker mp(pos, ttData.move, depth, &mainHistory, &lowPlyHistory, &captureHistory, contHist,
+    MovePicker mp(pos, ttData.move, depth, &mainHistory, &lowPlyHistory, &captureHistory,
+                  &sharedHistory.pawnHistory, contHist, &sharedHistory,
                   ss->threatMapHistory, ss->colourContinuationHistory, ss->moveTypeHistory,
                   ss->moveTypeCaptureHistory, ss->qSearchCaptureHistory, ss->ply);
 
@@ -1792,7 +1793,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // the moves. We presently use two stages of move generator in quiescence search:
     // captures, or evasions only when in check.
     MovePicker mp(pos, ttData.move, DEPTH_QS, &mainHistory, &lowPlyHistory, &captureHistory,
-                  contHist, ss->threatMapHistory, ss->colourContinuationHistory, ss->moveTypeHistory,
+                  &sharedHistory.pawnHistory, contHist, &sharedHistory,
+                  ss->threatMapHistory, ss->colourContinuationHistory, ss->moveTypeHistory,
                   ss->moveTypeCaptureHistory, ss->qSearchCaptureHistory, ss->ply);
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta
@@ -2543,3 +2545,10 @@ bool RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& po
 
 
 }  // namespace Stockfish
+
+// Explicit template instantiations
+template Value Search::Worker::search<Root>(Position&, Stack*, Value, Value, Depth, bool);
+template Value Search::Worker::search<PV>(Position&, Stack*, Value, Value, Depth, bool);
+template Value Search::Worker::search<NonPV>(Position&, Stack*, Value, Value, Depth, bool);
+template Value Search::Worker::qsearch<PV>(Position&, Stack*, Value, Value);
+template Value Search::Worker::qsearch<NonPV>(Position&, Stack*, Value, Value);
