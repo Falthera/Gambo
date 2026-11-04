@@ -45,7 +45,11 @@ class MovePicker {
                const LowPlyHistory*,
                const CapturePieceToHistory*,
                const PieceToHistory**,
-               const SharedHistories*,
+               const ThreatMapHistory*,
+               const ColourContinuationHistory*,
+               const MoveTypeHistory*,
+               const MoveTypeCaptureHistory*,
+               const QSearchCaptureHistory*,
                int);
     MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
     Move next_move();
@@ -59,20 +63,24 @@ class MovePicker {
     ExtMove* begin() { return cur; }
     ExtMove* end() { return endCur; }
 
-    const Position&              pos;
-    const ButterflyHistory*      mainHistory;
-    const LowPlyHistory*         lowPlyHistory;
-    const CapturePieceToHistory* captureHistory;
-    const PieceToHistory**       continuationHistory;
-    const SharedHistories*       sharedHistory;
-    Move                         ttMove;
-    ExtMove *                    cur, *endCur, *endBadCaptures, *endCaptures, *endGenerated;
-    int                          stage;
-    int                          threshold;
-    Depth                        depth;
-    int                          ply;
-    bool                         skipQuiets = false;
-    ExtMove                      moves[MAX_MOVES];
+    const Position&                  pos;
+    const ButterflyHistory*          mainHistory;
+    const LowPlyHistory*             lowPlyHistory;
+    const CapturePieceToHistory*     captureHistory;
+    const PieceToHistory**           continuationHistory;
+    const ThreatMapHistory*          threatMapHistory;
+    const ColourContinuationHistory* colourContinuationHistory;
+    const MoveTypeHistory*           moveTypeHistory;
+    const MoveTypeCaptureHistory*    moveTypeCaptureHistory;
+    const QSearchCaptureHistory*     qSearchCaptureHistory;
+    Move                             ttMove;
+    ExtMove *                        cur, *endCur, *endBadCaptures, *endCaptures, *endGenerated;
+    int                              stage;
+    int                              threshold;
+    Depth                            depth;
+    int                              ply;
+    bool                             skipQuiets = false;
+    ExtMove                          moves[MAX_MOVES];
 };
 
 }  // namespace Stockfish

@@ -274,11 +274,11 @@ bool Search::Worker::iterative_deepening() {
         (ss - i)->continuationHistory =
           &continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
         (ss - i)->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
-        (ss - i)->threatMapHistory = &sharedHistory.threat_map_entry(rootPos);
-        (ss - i)->colourContinuationHistory = &sharedHistory.colour_continuation_entry(rootPos);
-        (ss - i)->moveTypeHistory = &sharedHistory.move_type_entry(rootPos);
-        (ss - i)->moveTypeCaptureHistory = &sharedHistory.move_type_capture_entry(rootPos);
-        (ss - i)->qSearchCaptureHistory = &sharedHistory.qsearch_capture_entry(rootPos);
+        (ss - i)->threatMapHistory = &sharedHistory.threatMapHistory;
+        (ss - i)->colourContinuationHistory = &sharedHistory.colourContinuationHistory;
+        (ss - i)->moveTypeHistory = &sharedHistory.moveTypeHistory;
+        (ss - i)->moveTypeCaptureHistory = &sharedHistory.moveTypeCaptureHistory;
+        (ss - i)->qSearchCaptureHistory = &sharedHistory.qSearchCaptureHistory;
         (ss - i)->staticEval                    = VALUE_NONE;
         (ss - i)->extensionAccumulator          = 0;
         (ss - i)->singularExtensionCount        = 0;
@@ -1053,7 +1053,8 @@ moves_loop:  // When in check, search starts here
 
 
     MovePicker mp(pos, ttData.move, depth, &mainHistory, &lowPlyHistory, &captureHistory, contHist,
-                  &sharedHistory, ss->ply);
+                  ss->threatMapHistory, ss->colourContinuationHistory, ss->moveTypeHistory,
+                  ss->moveTypeCaptureHistory, ss->qSearchCaptureHistory, ss->ply);
 
     value = bestValue;
 
@@ -1791,7 +1792,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // the moves. We presently use two stages of move generator in quiescence search:
     // captures, or evasions only when in check.
     MovePicker mp(pos, ttData.move, DEPTH_QS, &mainHistory, &lowPlyHistory, &captureHistory,
-                  contHist, &sharedHistory, ss->ply);
+                  contHist, ss->threatMapHistory, ss->colourContinuationHistory, ss->moveTypeHistory,
+                  ss->moveTypeCaptureHistory, ss->qSearchCaptureHistory, ss->ply);
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta
     // cutoff occurs.

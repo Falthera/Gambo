@@ -266,14 +266,8 @@ struct SharedHistories {
         moveTypeCaptureHistory(),
         qSearchCaptureHistory() {
         assert((threadCount & (threadCount - 1)) == 0 && threadCount != 0);
-        sizeMinus1                    = correctionHistory.get_size() - 1;
-        pawnHistSizeMinus1            = pawnHistory.get_size() - 1;
-        threatMapHistSizeMinus1       = threatMapHistory.size() - 1;
-        colourContinuationHistSizeMinus1 = colourContinuationHistory.size() - 1;
-        multiPlyContinuationHistSizeMinus1 = multiPlyContinuationHistory.size() - 1;
-        moveTypeHistSizeMinus1        = moveTypeHistory.size() - 1;
-        moveTypeCaptureHistSizeMinus1 = moveTypeCaptureHistory.size() - 1;
-        qSearchCaptureHistSizeMinus1  = qSearchCaptureHistory.size() - 1;
+        sizeMinus1         = correctionHistory.get_size() - 1;
+        pawnHistSizeMinus1 = pawnHistory.get_size() - 1;
     }
 
     size_t get_size() const { return sizeMinus1 + 1; }
@@ -309,45 +303,57 @@ struct SharedHistories {
     }
 
     auto& threat_map_entry(const Position& pos) {
-        return threatMapHistory[pos.pawn_key() & threatMapHistSizeMinus1];
+        (void)pos;
+        return threatMapHistory;
     }
     const auto& threat_map_entry(const Position& pos) const {
-        return threatMapHistory[pos.pawn_key() & threatMapHistSizeMinus1];
+        (void)pos;
+        return threatMapHistory;
     }
 
     auto& colour_continuation_entry(const Position& pos) {
-        return colourContinuationHistory[pos.pawn_key() & colourContinuationHistSizeMinus1];
+        (void)pos;
+        return colourContinuationHistory;
     }
     const auto& colour_continuation_entry(const Position& pos) const {
-        return colourContinuationHistory[pos.pawn_key() & colourContinuationHistSizeMinus1];
+        (void)pos;
+        return colourContinuationHistory;
     }
 
     auto& multi_ply_continuation_entry(const Position& pos) {
-        return multiPlyContinuationHistory[pos.pawn_key() & multiPlyContinuationHistSizeMinus1];
+        (void)pos;
+        return multiPlyContinuationHistory;
     }
     const auto& multi_ply_continuation_entry(const Position& pos) const {
-        return multiPlyContinuationHistory[pos.pawn_key() & multiPlyContinuationHistSizeMinus1];
+        (void)pos;
+        return multiPlyContinuationHistory;
     }
 
     auto& move_type_entry(const Position& pos) {
-        return moveTypeHistory[pos.pawn_key() & moveTypeHistSizeMinus1];
+        (void)pos;
+        return moveTypeHistory;
     }
     const auto& move_type_entry(const Position& pos) const {
-        return moveTypeHistory[pos.pawn_key() & moveTypeHistSizeMinus1];
+        (void)pos;
+        return moveTypeHistory;
     }
 
     auto& move_type_capture_entry(const Position& pos) {
-        return moveTypeCaptureHistory[pos.pawn_key() & moveTypeCaptureHistSizeMinus1];
+        (void)pos;
+        return moveTypeCaptureHistory;
     }
     const auto& move_type_capture_entry(const Position& pos) const {
-        return moveTypeCaptureHistory[pos.pawn_key() & moveTypeCaptureHistSizeMinus1];
+        (void)pos;
+        return moveTypeCaptureHistory;
     }
 
     auto& qsearch_capture_entry(const Position& pos) {
-        return qSearchCaptureHistory[pos.pawn_key() & qSearchCaptureHistSizeMinus1];
+        (void)pos;
+        return qSearchCaptureHistory;
     }
     const auto& qsearch_capture_entry(const Position& pos) const {
-        return qSearchCaptureHistory[pos.pawn_key() & qSearchCaptureHistSizeMinus1];
+        (void)pos;
+        return qSearchCaptureHistory;
     }
 
     UnifiedCorrectionHistory correctionHistory;
@@ -360,7 +366,7 @@ struct SharedHistories {
     QSearchCaptureHistory    qSearchCaptureHistory;
 
 private:
-    size_t sizeMinus1, pawnHistSizeMinus1, threatMapHistSizeMinus1, colourContinuationHistSizeMinus1, multiPlyContinuationHistSizeMinus1, moveTypeHistSizeMinus1, moveTypeCaptureHistSizeMinus1, qSearchCaptureHistSizeMinus1;
+    size_t sizeMinus1, pawnHistSizeMinus1;
 };
 
 }  // namespace Stockfish

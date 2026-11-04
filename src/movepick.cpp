@@ -152,21 +152,29 @@ void partial_insertion_sort(ExtMove* begin, ExtMove* end, int limit) {
 // good moves first, and how important move ordering is at the current node.
 
 // MovePicker constructor for the main search and for the quiescence search
-MovePicker::MovePicker(const Position&              p,
-                       Move                         ttm,
-                       Depth                        d,
-                       const ButterflyHistory*      mh,
-                       const LowPlyHistory*         lph,
-                       const CapturePieceToHistory* cph,
-                       const PieceToHistory**       ch,
-                       const SharedHistories*       sh,
-                       int                          pl) :
+MovePicker::MovePicker(const Position&                   p,
+                       Move                              ttm,
+                       Depth                             d,
+                       const ButterflyHistory*           mh,
+                       const LowPlyHistory*              lph,
+                       const CapturePieceToHistory*      cph,
+                       const PieceToHistory**            ch,
+                       const ThreatMapHistory*           tmh,
+                       const ColourContinuationHistory*  cch,
+                       const MoveTypeHistory*            mth,
+                       const MoveTypeCaptureHistory*     mtch,
+                       const QSearchCaptureHistory*      qsch,
+                       int                               pl) :
     pos(p),
     mainHistory(mh),
     lowPlyHistory(lph),
     captureHistory(cph),
     continuationHistory(ch),
-    sharedHistory(sh),
+    threatMapHistory(tmh),
+    colourContinuationHistory(cch),
+    moveTypeHistory(mth),
+    moveTypeCaptureHistory(mtch),
+    qSearchCaptureHistory(qsch),
     ttMove(ttm),
     depth(d),
     ply(pl) {
@@ -233,10 +241,10 @@ if constexpr (Type == CAPTURES)
                 // SEE-GCP: Classify capture by SEE value
                 int seeValue = pos.see(m);
                 Search::SEEClass seeClass = Search::see_class(pos, m, seeValue);
-                if (Stockfish::use_qsearch_capture_history() && sharedHistory)
+                if (Stockfish::use_qsearch_capture_history() && qSearchCaptureHistory)
                 {
                     int seeClassIdx = static_cast<int>(seeClass);
-                    m.value += sharedHistory->qsearch_capture_entry(pos)[pc][to][type_of(capturedPiece)] / 4;
+                    m.value += (*qSearchCaptureHistory)[pc][to][type_of(capturedPiece)] / 4;
                     // Boost winning captures
                     if (seeClass == Search::SEEClass::SEE_WINNING)
                         m.value += 1024;
@@ -265,7 +273,7 @@ else if constexpr (Type == QUIETS)
             {
                 // histories
                 m.value = 2 * (*mainHistory)[us][m.raw()];
-                m.value += 2 * sharedHistory->pawn_entry(pos)[pc][to];
+                m.value += 2 * (*pawnHistory)[pc][to];
                 m.value += (*continuationHistory[0])[pc][to];
                 m.value += (*continuationHistory[1])[pc][to];
                 m.value += (*continuationHistory[2])[pc][to];
@@ -273,11 +281,11 @@ else if constexpr (Type == QUIETS)
                 m.value += (*continuationHistory[5])[pc][to];
 
                 // MTCH: Move-Type Conditioned History
-                if (Stockfish::use_move_type_history() && sharedHistory)
+                if (Stockfish::use_move_type_history() && moveTypeHistory)
                 {
                     Search::MoveTypeClass mt = Search::move_type_class(pos, m, false);
                     int mtIdx = static_cast<int>(mt);
-                    m.value += sharedHistory->move_type_entry(pos)[mtIdx][pc][to] / 2;
+                    m.value += (*moveTypeHistory)[mtIdx][pc][to] / 2;
                 }
 
                 // bonus for checks
@@ -361,7 +369,7 @@ top:
         endCur = endCaptures = score<CAPTURES>(ml);
 
         // CHQO: SEE-GCP partitioning for qsearch captures
-        if (Stockfish::use_qsearch_capture_history() && sharedHistory)
+        if (Stockfish::use_qsearch_capture_history() && qSearchCaptureHistory)
         {
             for (ExtMove* m = cur; m < endCur; ++m)
             {
@@ -383,7 +391,7 @@ top:
                 Piece pc = pos.moved_piece(*m);
                 Square to = m->to_sq();
                 Piece captured = pos.piece_on(to);
-                m->value += sharedHistory->qsearch_capture_entry(pos)[pc][to][type_of(captured)] / 2;
+                m->value += (*qSearchCaptureHistory)[pc][to][type_of(captured)] / 2;
             }
         }
 
