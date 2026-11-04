@@ -130,8 +130,6 @@ void update_all_stats(const Position& pos,
                       Depth           depth,
                       Move            ttMove);
 
-void syzygy_extend_pv(const OptionsMap&, const LimitsType&, Position&, RootMove&, Value&);
-
 void update_correction_history(const Position& pos,
                                Stack* const    ss,
                                Search::Worker& workerThread,
@@ -219,6 +217,9 @@ void update_correction_history(const Position& pos,
 }  // namespace
 
 namespace Search {
+
+// Forward declaration for syzygy_extend_pv
+void syzygy_extend_pv(const OptionsMap&, const LimitsType&, Position&, RootMove&, Value&);
 
 Worker::Worker(SharedState&                    sharedState,
                        std::unique_ptr<ISearchManager> sm,
