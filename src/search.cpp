@@ -222,7 +222,6 @@ void update_correction_history(const Position& pos,
 
 }  // namespace
 
-namespace Stockfish {
 namespace Search {
 
 Worker::Worker(SharedState&                    sharedState,
@@ -246,13 +245,13 @@ Worker::Worker(SharedState&                    sharedState,
     clear();
 }
 
-void Search::Worker::ensure_network_replicated() {
+void Worker::ensure_network_replicated() {
     // Access once to force lazy initialization.
     // We do this because we want to avoid initialization during search.
     (void) (network[numaAccessToken]);
 }
 
-void Search::Worker::start_searching() {
+void Worker::start_searching() {
 
     accumulatorStack.reset();
     lastIterationPV.clear();
@@ -331,7 +330,7 @@ void Search::Worker::start_searching() {
 // Main iterative deepening loop. It calls search()
 // repeatedly with increasing depth until the allocated thinking time has been
 // consumed, the user stops the search, or the maximum search depth is reached.
-bool Search::Worker::iterative_deepening() {
+bool Worker::iterative_deepening() {
 
     SearchManager* mainThread = (is_mainthread() ? main_manager() : nullptr);
 
@@ -674,11 +673,11 @@ bool Search::Worker::iterative_deepening() {
 }
 
 
-void Search::Worker::do_move(Position& pos, const Move move, StateInfo& st, Stack* const ss) {
+void Worker::do_move(Position& pos, const Move move, StateInfo& st, Stack* const ss) {
     do_move(pos, move, st, pos.gives_check(move), ss);
 }
 
-void Search::Worker::do_move(
+void Worker::do_move(
   Position& pos, const Move move, StateInfo& st, const bool givesCheck, Stack* const ss) {
     bool capture = pos.capture_stage(move);
     // Preferable over fetch_add to avoid locking instructions
@@ -697,23 +696,23 @@ void Search::Worker::do_move(
     }
 }
 
-void Search::Worker::do_null_move(Position& pos, StateInfo& st, Stack* const ss) {
+void Worker::do_null_move(Position& pos, StateInfo& st, Stack* const ss) {
     pos.do_null_move(st);
     ss->currentMove                   = Move::null();
     ss->continuationHistory           = &continuationHistory[0][0][NO_PIECE][0];
     ss->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
 }
 
-void Search::Worker::undo_move(Position& pos, const Move move) {
+void Worker::undo_move(Position& pos, const Move move) {
     pos.undo_move(move);
     accumulatorStack.pop();
 }
 
-void Search::Worker::undo_null_move(Position& pos) { pos.undo_null_move(); }
+void Worker::undo_null_move(Position& pos) { pos.undo_null_move(); }
 
 
 // Reset histories, usually before a new game
-void Search::Worker::clear() {
+void Worker::clear() {
     mainHistory.fill(-5);
     captureHistory.fill(-699);
 
@@ -742,7 +741,7 @@ void Search::Worker::clear() {
 
 // Main search function for both PV and non-PV nodes
 template<NodeType nodeType>
-Value Search::Worker::search(
+Value Worker::search(
   Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode) {
 
     constexpr bool PvNode   = nodeType != NonPV;
@@ -1741,7 +1740,7 @@ moves_loop:  // When in check, search starts here
 // See https://www.chessprogramming.org/Horizon_Effect
 // and https://www.chessprogramming.org/Quiescence_Search
 template<NodeType nodeType>
-Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
+Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
 
     static_assert(nodeType != Root);
     constexpr bool PvNode = nodeType == PV;
@@ -1992,14 +1991,14 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     return bestValue;
 }
 
-int Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
+int Worker::reduction(bool i, Depth d, int mn, int delta) const {
     int reductionScale = reductions[d] * reductions[mn];
     return reductionScale - delta * 617 / rootDelta + !i * reductionScale * 194 / 512 + 1027;
 }
 
 // LMRC — LMR Context Calibration
 // Returns adjusted reduction based on search context
-int Search::Worker::contextual_reduction(const Position& pos, const Stack* ss, bool improving, Depth depth, int moveCount, int delta, int history, int threatCat, bool ttPv) const {
+int Worker::contextual_reduction(const Position& pos, const Stack* ss, bool improving, Depth depth, int moveCount, int delta, int history, int threatCat, bool ttPv) const {
     int r = reduction(improving, depth, moveCount, delta);
     
     // Reduce less for moves with good history
@@ -2040,13 +2039,13 @@ int Search::Worker::contextual_reduction(const Position& pos, const Stack* ss, b
 // elapsed_time() returns the actual time elapsed since the start of the search.
 // This function is intended for use only when printing PV outputs, and not used
 // for making decisions within the search algorithm itself.
-TimePoint Search::Worker::elapsed() const {
+TimePoint Worker::elapsed() const {
     return main_manager()->tm.elapsed([this]() { return threads.nodes_searched(); });
 }
 
-TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
+TimePoint Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
 
-Value Search::Worker::evaluate(const Position& pos) {
+Value Worker::evaluate(const Position& pos) {
 return Eval::evaluate(network[numaAccessToken], pos, accumulatorStack, refreshTable,
                           optimism[pos.side_to_move()]);
 }
@@ -2084,7 +2083,7 @@ Move Skill::pick_best(const RootMoves& rootMoves, size_t multiPV) {
 
 // Used to print debug info and, more importantly, to detect
 // when we are out of available time and thus stop the search.
-void SearchManager::check_time(Search::Worker& worker) {
+void SearchManager::check_time(Worker& worker) {
     if (--callsCnt > 0)
         return;
 
@@ -2289,7 +2288,7 @@ void syzygy_extend_pv(const OptionsMap&         options,
           << sync_endl;
 }
 
-void SearchManager::pv(Search::Worker&           worker,
+void SearchManager::pv(Worker&           worker,
                        const ThreadPool&         threads,
                        const TranspositionTable& tt,
                        Depth                     depth) {
