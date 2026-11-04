@@ -730,8 +730,8 @@ refreshTable.clear(network[numaAccessToken]);
 
 
 // Main search function for both PV and non-PV nodes
-template<NodeType nodeType>
-Value Worker::search(
+template<Stockfish::NodeType nodeType>
+Value Search::Worker::search(
   Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode) {
 
     constexpr bool PvNode   = nodeType != NonPV;
@@ -1731,8 +1731,8 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
 // To fight this horizon effect, we implement this qsearch of tactical moves.
 // See https://www.chessprogramming.org/Horizon_Effect
 // and https://www.chessprogramming.org/Quiescence_Search
-template<NodeType nodeType>
-Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
+template<Stockfish::NodeType nodeType>
+Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
 
     static_assert(nodeType != Root);
     constexpr bool PvNode = nodeType == PV;
@@ -1983,14 +1983,14 @@ Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
     return bestValue;
 }
 
-int Worker::reduction(bool i, Depth d, int mn, int delta) const {
+int Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
     int reductionScale = reductions[d] * reductions[mn];
     return reductionScale - delta * 617 / rootDelta + !i * reductionScale * 194 / 512 + 1027;
 }
 
 // LMRC — LMR Context Calibration
 // Returns adjusted reduction based on search context
-int Worker::contextual_reduction(const Position& pos, const Stack* ss, bool improving, Depth depth, int moveCount, int delta, int history, int threatCat, bool ttPv) const {
+int Search::Worker::contextual_reduction(const Position& pos, const Stack* ss, bool improving, Depth depth, int moveCount, int delta, int history, int threatCat, bool ttPv) const {
     int r = reduction(improving, depth, moveCount, delta);
     
     // Reduce less for moves with good history
@@ -2031,20 +2031,20 @@ int Worker::contextual_reduction(const Position& pos, const Stack* ss, bool impr
 // elapsed_time() returns the actual time elapsed since the start of the search.
 // This function is intended for use only when printing PV outputs, and not used
 // for making decisions within the search algorithm itself.
-TimePoint Worker::elapsed() const {
+TimePoint Search::Worker::elapsed() const {
     return main_manager()->tm.elapsed([this]() { return threads.nodes_searched(); });
 }
 
-TimePoint Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
+TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
 
-Value Worker::evaluate(const Position& pos) {
+Value Search::Worker::evaluate(const Position& pos) {
 return Eval::evaluate(network[numaAccessToken], pos, accumulatorStack, refreshTable,
                           optimism[pos.side_to_move()]);
 }
 
 // When playing with strength handicap, choose the best move among a set of
 // RootMoves using a statistical rule dependent on 'level'. Idea by Heinz van Saanen.
-Move Skill::pick_best(const RootMoves& rootMoves, size_t multiPV) {
+Move Search::Skill::pick_best(const RootMoves& rootMoves, size_t multiPV) {
     static PRNG rng(now());  // PRNG sequence should be non-deterministic
 
     // RootMoves are already sorted by score in descending order
@@ -2075,7 +2075,7 @@ Move Skill::pick_best(const RootMoves& rootMoves, size_t multiPV) {
 
 // Used to print debug info and, more importantly, to detect
 // when we are out of available time and thus stop the search.
-void SearchManager::check_time(Worker& worker) {
+void Search::SearchManager::check_time(Search::Worker& worker) {
     if (--callsCnt > 0)
         return;
 
@@ -2148,7 +2148,7 @@ void SearchManager::check_time(Worker& worker) {
 // Keeps the search based PV for as long as it is verified to maintain the game
 // outcome, truncates afterwards. Finally, extends to mate the PV, providing a
 // possible continuation (but not a proven mating line).
-void syzygy_extend_pv(const OptionsMap&         options,
+void Search::syzygy_extend_pv(const OptionsMap&         options,
                       const LimitsType& limits,
                       Position&                 pos,
                       RootMove&                 rootMove,
@@ -2280,7 +2280,7 @@ void syzygy_extend_pv(const OptionsMap&         options,
           << sync_endl;
 }
 
-void SearchManager::pv(Worker&           worker,
+void Search::SearchManager::pv(Search::Worker&           worker,
                        const ThreadPool&         threads,
                        const TranspositionTable& tt,
                        Depth                     depth) {
@@ -2353,7 +2353,7 @@ void SearchManager::pv(Worker&           worker,
 // for instance, in case we stop the search during a fail high at root.
 // We try hard to have a ponder move to return to the GUI,
 // otherwise in case of 'ponder on' we have nothing to think about.
-bool RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& pos) {
+bool Search::RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& pos) {
 
     assert(pv.size() == 1 && pv[0] != Move::none());
 
