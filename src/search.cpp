@@ -220,7 +220,12 @@ void update_correction_history(const Position& pos,
     (void)pos; (void)ss; (void)workerThread; (void)bonus;
 }
 
-Search::Worker::Worker(SharedState&                    sharedState,
+}  // namespace
+
+namespace Stockfish {
+namespace Search {
+
+Worker::Worker(SharedState&                    sharedState,
                        std::unique_ptr<ISearchManager> sm,
                        size_t                          threadId,
                        size_t                          numaThreadId,
@@ -2153,7 +2158,7 @@ void SearchManager::check_time(Search::Worker& worker) {
 // outcome, truncates afterwards. Finally, extends to mate the PV, providing a
 // possible continuation (but not a proven mating line).
 void syzygy_extend_pv(const OptionsMap&         options,
-                      const Search::LimitsType& limits,
+                      const LimitsType& limits,
                       Position&                 pos,
                       RootMove&                 rootMove,
                       Value&                    v) {
@@ -2375,5 +2380,5 @@ bool RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& po
     return pv.size() > 1;
 }
 
-
+}  // namespace Search
 }  // namespace Stockfish
