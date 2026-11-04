@@ -120,7 +120,7 @@ bool is_shuffling(Move move, Stack* const ss, const Position& pos) {
         && (ss - 2)->currentMove.from_sq() == (ss - 4)->currentMove.to_sq();
 }
 
-Forward declarations for helper functions used in search templates
+// Forward declarations for helper functions used in search templates
 Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r50c);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
@@ -140,6 +140,85 @@ void update_correction_history(const Position& pos,
                                Stack* const    ss,
                                Search::Worker& workerThread,
                                const int       bonus);
+
+// Helper function definitions (must be before template functions that use them)
+Value value_to_tt(Value v, int ply) { return is_win(v) ? v + ply : is_loss(v) ? v - ply : v; }
+
+
+// Inverse of value_to_tt(): it adjusts a mate or TB score from the transposition
+// table (which refers to the plies to mate/be mated from current position) to
+// "plies to mate/be mated (TB win/loss) from the root". However, to avoid
+// potentially false mate or TB scores related to the 50 moves rule and the
+// graph history interaction, we return the highest non-TB score instead.
+Value value_from_tt(Value v, int ply, int r50c) {
+
+    if (!is_valid(v))
+        return VALUE_NONE;
+
+    // handle TB win or better
+    if (is_win(v))
+    {
+        // Downgrade a potentially false mate score
+        if (is_mate(v) && VALUE_MATE - v > 100 - r50c)
+            return VALUE_TB_WIN_IN_MAX_PLY - 1;
+
+        // Downgrade a potentially false TB score.
+        if (VALUE_TB - v > 100 - r50c)
+            return VALUE_TB_WIN_IN_MAX_PLY - 1;
+
+        return v - ply;
+    }
+
+    // handle TB loss or worse
+    if (is_loss(v))
+    {
+        // Downgrade a potentially false mate score.
+        if (is_mated(v) && VALUE_MATE + v > 100 - r50c)
+            return VALUE_TB_LOSS_IN_MAX_PLY + 1;
+
+        // Downgrade a potentially false TB score.
+        if (VALUE_TB + v > 100 - r50c)
+            return VALUE_TB_LOSS_IN_MAX_PLY + 1;
+
+        return v + ply;
+    }
+
+    return v;
+}
+
+
+void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
+    // Implementation here if needed
+    (void)ss; (void)pc; (void)to; (void)bonus;
+}
+
+void  update_quiet_histories(
+   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus) {
+    // Implementation here if needed
+    (void)pos; (void)ss; (void)workerThread; (void)move; (void)bonus;
+}
+
+void update_all_stats(const Position& pos,
+                      Stack*          ss,
+                      Search::Worker& workerThread,
+                      Move            bestMove,
+                      Square          prevSq,
+                      SearchedList&   quietsSearched,
+                      SearchedList&   capturesSearched,
+                      Depth           depth,
+                      Move            ttMove) {
+    // Implementation here if needed
+    (void)pos; (void)ss; (void)workerThread; (void)bestMove; (void)prevSq;
+    (void)quietsSearched; (void)capturesSearched; (void)depth; (void)ttMove;
+}
+
+void update_correction_history(const Position& pos,
+                               Stack* const    ss,
+                               Search::Worker& workerThread,
+                               const int       bonus) {
+    // Implementation here if needed
+    (void)pos; (void)ss; (void)workerThread; (void)bonus;
+}
 
 Search::Worker::Worker(SharedState&                    sharedState,
                        std::unique_ptr<ISearchManager> sm,
@@ -1963,253 +2042,8 @@ TimePoint Search::Worker::elapsed() const {
 TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
 
 Value Search::Worker::evaluate(const Position& pos) {
-    return Eval::evaluate(network[numaAccessToken], pos, accumulatorStack, refreshTable,
+return Eval::evaluate(network[numaAccessToken], pos, accumulatorStack, refreshTable,
                           optimism[pos.side_to_move()]);
-}
-
-// Adjusts a mate or TB score from "plies to mate from the root" to
-// "plies to mate from the current position". Standard scores are unchanged.
-// The function is called before storing a value in the transposition table.
-Value value_to_tt(Value v, int ply) { return is_win(v) ? v + ply : is_loss(v) ? v - ply : v; }
-
-
-// Inverse of value_to_tt(): it adjusts a mate or TB score from the transposition
-// table (which refers to the plies to mate/be mated from current position) to
-// "plies to mate/be mated (TB win/loss) from the root". However, to avoid
-// potentially false mate or TB scores related to the 50 moves rule and the
-// graph history interaction, we return the highest non-TB score instead.
-Value value_from_tt(Value v, int ply, int r50c) {
-
-    if (!is_valid(v))
-        return VALUE_NONE;
-
-    // handle TB win or better
-    if (is_win(v))
-    {
-        // Downgrade a potentially false mate score
-        if (is_mate(v) && VALUE_MATE - v > 100 - r50c)
-            return VALUE_TB_WIN_IN_MAX_PLY - 1;
-
-        // Downgrade a potentially false TB score.
-        if (VALUE_TB - v > 100 - r50c)
-            return VALUE_TB_WIN_IN_MAX_PLY - 1;
-
-        return v - ply;
-    }
-
-    // handle TB loss or worse
-    if (is_loss(v))
-    {
-        // Downgrade a potentially false mate score.
-        if (is_mated(v) && VALUE_MATE + v > 100 - r50c)
-            return VALUE_TB_LOSS_IN_MAX_PLY + 1;
-
-        // Downgrade a potentially false TB score.
-        if (VALUE_TB + v > 100 - r50c)
-            return VALUE_TB_LOSS_IN_MAX_PLY + 1;
-
-        return v + ply;
-    }
-
-    return v;
-}
-
-
-// Updates stats at the end of search() when a bestMove is found
-void update_all_stats(const Position& pos,
-                      Stack*          ss,
-                      Search::Worker& workerThread,
-                      Move            bestMove,
-                      Square          prevSq,
-                      SearchedList&   quietsSearched,
-                      SearchedList&   capturesSearched,
-                      Depth           depth,
-                      Move            ttMove) {
-
-    CapturePieceToHistory& captureHistory = workerThread.captureHistory;
-    Piece                  movedPiece     = pos.moved_piece(bestMove);
-    PieceType              capturedPiece;
-
-    int bonus =
-      std::min(134 * depth - 79, 1572) + 382 * (bestMove == ttMove) + (ss - 1)->statScore / 30;
-    int malus = std::min(1005 * depth - 205, 2218);
-
-    if (!pos.capture_stage(bestMove))
-    {
-        update_quiet_histories(pos, ss, workerThread, bestMove, bonus * 824 / 1024);
-
-        int actualMalus = malus * 1136 / 1024;
-        // Decrease stats for all non-best quiet moves
-        for (Move move : quietsSearched)
-        {
-            actualMalus = actualMalus * 956 / 1024;
-            update_quiet_histories(pos, ss, workerThread, move, -actualMalus);
-        }
-    }
-    else
-    {
-        // Increase stats for the best move in case it was a capture move
-        capturedPiece = type_of(pos.piece_on(bestMove.to_sq()));
-        captureHistory[movedPiece][bestMove.to_sq()][capturedPiece] << bonus * 1366 / 1024;
-
-        // TMIHH for best capture move
-        if (Stockfish::use_threat_map_history())
-        {
-            int tcat = threat_category(pos, pos.side_to_move(), bestMove, ss);
-            if (tcat > 0)
-            {
-                auto& tmihhEntry = workerThread.sharedHistory.threat_map_entry(pos)[tcat][movedPiece][bestMove.to_sq()];
-                tmihhEntry << bonus * 1366 / 1024;
-            }
-        }
-    }
-
-    // Extra penalty for a quiet early move that was not a TT move in
-    // previous ply when it gets refuted.
-    if (prevSq != SQ_NONE && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit) && !pos.captured_piece())
-        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -malus * 683 / 1024);
-
-    // Decrease stats for all non-best capture moves
-    for (Move move : capturesSearched)
-    {
-        movedPiece    = pos.moved_piece(move);
-        capturedPiece = type_of(pos.piece_on(move.to_sq()));
-        captureHistory[movedPiece][move.to_sq()][capturedPiece] << -malus * 1518 / 1024;
-
-        // TMIHH for refuted capture moves
-        if (Stockfish::use_threat_map_history())
-        {
-            int tcat = threat_category(pos, pos.side_to_move(), move, ss);
-            if (tcat > 0)
-            {
-                auto& tmihhEntry = workerThread.sharedHistory.threat_map_entry(pos)[tcat][movedPiece][move.to_sq()];
-                tmihhEntry << -malus * 1518 / 1024;
-            }
-        }
-    }
-}
-
-
-// Updates the continuation histories for the move pairs formed by
-// the current move and the moves played in previous plies.
-void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
-    static constexpr std::array<ConthistBonus, 6> conthist_bonuses = {
-      {{1, 1040}, {2, 780}, {3, 300}, {4, 537}, {5, 129}, {6, 423}}};
-
-    // Multipliers for positive history consistency
-    constexpr int CMHCMultipliers[] = {96, 113, 101, 105, 127, 121, 126};
-    int           positiveCount     = 0;
-
-    for (const auto [i, weight] : conthist_bonuses)
-    {
-        // Only update the first 2 continuation histories if we are in check
-        if (ss->inCheck && i > 2)
-            break;
-
-        if (((ss - i)->currentMove).is_ok())
-        {
-            auto& historyEntry = (*(ss - i)->continuationHistory)[pc][to];
-            if (historyEntry > 0)
-                positiveCount++;
-
-            int multiplier = CMHCMultipliers[positiveCount];
-            historyEntry << (bonus * weight * multiplier / 131072) + 71 * (i < 2);
-        }
-    }
-
-    // CICH — Colour-Indexed Continuation History
-    if (use_colour_continuation_history())
-    {
-        Color us = (ss - 1)->currentMove.is_ok() ? pos.side_to_move() : Color(0); // Simplified
-        for (int i = 1; i <= 4; ++i)
-        {
-            if (((ss - i)->currentMove).is_ok())
-            {
-                Piece prevPc = pos.piece_on(((ss - i)->currentMove).from_sq());
-                Square prevTo = ((ss - i)->currentMove).to_sq();
-                if (prevPc != NO_PIECE)
-                {
-                    auto& cichEntry = (*(ss - i)->colourContinuationHistory)[us][~us][prevPc][prevTo][pc][to];
-                    cichEntry << (bonus * 512 / 1024);
-                }
-            }
-        }
-    }
-
-    // MPCH — Multi-Ply Continuation History (2-ply)
-    if (use_multi_ply_continuation_history())
-    {
-        for (int i = 2; i <= 3; ++i)
-        {
-            if (((ss - i)->currentMove).is_ok() && ((ss - i - 1)->currentMove).is_ok())
-            {
-                Piece prev2Pc = pos.piece_on(((ss - i)->currentMove).from_sq());
-                Square prev2To = ((ss - i)->currentMove).to_sq();
-                Piece prev1Pc = pos.piece_on(((ss - i - 1)->currentMove).from_sq());
-                Square prev1To = ((ss - i - 1)->currentMove).to_sq();
-                if (prev2Pc != NO_PIECE && prev1Pc != NO_PIECE)
-                {
-                    auto& mpchEntry = (*(ss - i)->colourContinuationHistory)[prev2Pc][prev2To][prev1Pc][prev1To][pc][to];
-                    mpchEntry << (bonus * 256 / 1024);
-                }
-}
-    }
-}
-
-// Updates move sorting heuristics
-
-void update_quiet_histories(
-  const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus) {
-
-    Color us = pos.side_to_move();
-    workerThread.mainHistory[us][move.raw()] << bonus;  // Untuned to prevent duplicate effort
-
-    if (ss->ply < LOW_PLY_HISTORY_SIZE)
-        workerThread.lowPlyHistory[ss->ply][move.raw()] << bonus * 663 / 1024;
-
-    update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus * 820 / 1024);
-
-    workerThread.sharedHistory.pawn_entry(pos)[pos.moved_piece(move)][move.to_sq()]
-      << bonus * (bonus > -7 ? 1038 : 525) / 1024;
-
-    // TMIHH — Threat-Map Indexed History Heuristic
-    if (Stockfish::use_threat_map_history())
-    {
-        int tcat = threat_category(pos, us, move, ss);
-        if (tcat > 0)
-        {
-            Piece pc = pos.moved_piece(move);
-            Square to = move.to_sq();
-            auto& tmihhEntry = workerThread.sharedHistory.threat_map_entry(pos)[tcat][pc][to];
-            tmihhEntry << bonus * 1024 / 1024;
-        }
-    }
-}
-
-// Updates move sorting heuristics
-
-void update_correction_history(const Position& pos,
-                               Stack* const    ss,
-                               Search::Worker& workerThread,
-                               const int       bonus) {
-    const Move  m  = (ss - 1)->currentMove;
-    const Color us = pos.side_to_move();
-
-    constexpr int nonPawnWeight = 186;
-    auto&         shared        = workerThread.sharedHistory;
-
-    shared.pawn_correction_entry(pos)[us].pawn << bonus;
-    shared.minor_piece_correction_entry(pos)[us].minor << bonus * 152 / 128;
-    shared.nonpawn_correction_entry<WHITE>(pos)[us].nonPawnWhite << bonus * nonPawnWeight / 128;
-    shared.nonpawn_correction_entry<BLACK>(pos)[us].nonPawnBlack << bonus * nonPawnWeight / 128;
-
-    if (m.is_ok())
-    {
-        const Square to = m.to_sq();
-        const Piece  pc = pos.piece_on(to);
-        (*(ss - 2)->continuationCorrectionHistory)[pc][to] << bonus * 136 / 128;
-        (*(ss - 4)->continuationCorrectionHistory)[pc][to] << bonus * 68 / 128;
-    }
 }
 
 // When playing with strength handicap, choose the best move among a set of
