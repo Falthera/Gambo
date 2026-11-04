@@ -49,6 +49,7 @@
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
+#include "uci_options.h"
 #include "gambo/pce.h"
 #include "gambo/sid.h"
 

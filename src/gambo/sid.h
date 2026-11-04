@@ -31,7 +31,7 @@
 namespace Stockfish {
 namespace Search {
 struct Stack;
-using PVMoves = std::vector<Move>;
+struct PVMoves;
 }
 }
 

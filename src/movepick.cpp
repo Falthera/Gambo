@@ -235,7 +235,7 @@ if constexpr (Type == CAPTURES)
                 if (use_qsearch_capture_history() && sharedHistory)
                 {
                     int seeClassIdx = static_cast<int>(seeClass);
-                    m.value += (*sharedHistory->qsearch_capture_entry(pos))[pc][to][type_of(capturedPiece)] / 4;
+                    m.value += sharedHistory->qsearch_capture_entry(pos)[pc][to][type_of(capturedPiece)] / 4;
                     // Boost winning captures
                     if (seeClass == Search::SEEClass::SEE_WINNING)
                         m.value += 1024;
@@ -276,7 +276,7 @@ else if constexpr (Type == QUIETS)
                 {
                     Search::MoveTypeClass mt = Search::move_type_class(pos, m, false);
                     int mtIdx = static_cast<int>(mt);
-                    m.value += (*sharedHistory->move_type_entry(pos))[mtIdx][pc][to] / 2;
+                    m.value += sharedHistory->move_type_entry(pos)[mtIdx][pc][to] / 2;
                 }
 
                 // bonus for checks
@@ -382,7 +382,7 @@ top:
                 Piece pc = pos.moved_piece(*m);
                 Square to = m->to_sq();
                 Piece captured = pos.piece_on(to);
-                m->value += (*sharedHistory->qsearch_capture_entry(pos))[pc][to][type_of(captured)] / 2;
+                m->value += sharedHistory->qsearch_capture_entry(pos)[pc][to][type_of(captured)] / 2;
             }
         }
 

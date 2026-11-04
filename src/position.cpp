@@ -1500,6 +1500,27 @@ bool Position::see_ge(Move m, int threshold) const {
     return bool(res);
 }
 
+// Static Exchange Evaluation - returns the full SEE value
+// Uses binary search with see_ge to find the exact SEE value
+int Position::see(Move m) const {
+    // Quick check: if not a capture or promotion, SEE is 0
+    if (!capture_stage(m) && m.type_of() != PROMOTION)
+        return 0;
+    
+    // Binary search for SEE value
+    // SEE values are typically in range [-VALUE_INFINITE, VALUE_INFINITE]
+    // But practically in [-20000, 20000]
+    int lo = -20000, hi = 20000;
+    while (lo <= hi) {
+        int mid = (lo + hi) / 2;
+        if (see_ge(m, mid))
+            lo = mid + 1;
+        else
+            hi = mid - 1;
+    }
+    return hi;
+}
+
 // Tests whether the position is drawn by 50-move rule
 // or by repetition. It does not detect stalemates.
 bool Position::is_draw(int ply) const {
