@@ -337,6 +337,27 @@ inline SEEClass see_class(const Position& pos, Move m, int seeValue) {
     return SEEClass::SEE_LOSING;
 }
 
+// Static Exchange Evaluation - returns the SEE value of a move
+// Uses binary search with see_ge to find the exact SEE value
+inline int see(const Position& pos, Move m) {
+    // Quick check: if not a capture or promotion, SEE is 0
+    if (!pos.capture_stage(m) && m.type_of() != PROMOTION)
+        return 0;
+    
+    // Binary search for SEE value
+    // SEE values are typically in range [-VALUE_INFINITE, VALUE_INFINITE]
+    // But practically in [-20000, 20000]
+    int lo = -20000, hi = 20000;
+    while (lo <= hi) {
+        int mid = (lo + hi) / 2;
+        if (pos.see_ge(m, mid))
+            lo = mid + 1;
+        else
+            hi = mid - 1;
+    }
+    return hi;
+}
+
 // HGQMP — History-Guided Quiet Move Pruning
 // Returns true if a quiet move should be pruned based on history and context
 inline bool prune_quiet_move(const Position& pos, const Stack* ss, Move move, int moveCount, Depth depth, int historyScore, bool inCheck, bool ttPv, int threatCat) {
@@ -719,6 +740,9 @@ class Worker {
     Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta);
 
     int reduction(bool i, Depth d, int mn, int delta) const;
+
+    // LMRC: Context-aware LMR reduction
+    int contextual_reduction(const Position& pos, const Stack* ss, bool improving, Depth depth, int moveCount, int delta, int history, int threatCat, bool ttPv) const;
 
     // Pointer to the search manager, only allowed to be called by the main thread
     SearchManager* main_manager() const {

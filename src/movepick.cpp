@@ -231,8 +231,8 @@ if constexpr (Type == CAPTURES)
 
                 // SEE-GCP: Classify capture by SEE value
                 int seeValue = pos.see(m);
-                Search::SEEClass seeClass = Search::see_class(pos, m, seeValue);
-                if (Search::use_qsearch_capture_history() && sharedHistory)
+                SEEClass seeClass = see_class(pos, m, seeValue);
+                if (use_qsearch_capture_history() && sharedHistory)
                 {
                     int seeClassIdx = static_cast<int>(seeClass);
                     m.value += (*sharedHistory->qsearch_capture_entry(pos))[pc][to][type_of(capturedPiece)] / 4;
@@ -272,7 +272,7 @@ else if constexpr (Type == QUIETS)
                 m.value += (*continuationHistory[5])[pc][to];
 
                 // MTCH: Move-Type Conditioned History
-                if (Search::use_move_type_history() && sharedHistory)
+                if (use_move_type_history() && sharedHistory)
                 {
                     Search::MoveTypeClass mt = Search::move_type_class(pos, m, false);
                     int mtIdx = static_cast<int>(mt);
@@ -360,7 +360,7 @@ top:
         endCur = endCaptures = score<CAPTURES>(ml);
 
         // CHQO: SEE-GCP partitioning for qsearch captures
-        if (Search::use_qsearch_capture_history() && sharedHistory)
+        if (use_qsearch_capture_history() && sharedHistory)
         {
             for (ExtMove* m = cur; m < endCur; ++m)
             {

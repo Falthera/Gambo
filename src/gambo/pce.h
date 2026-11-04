@@ -25,8 +25,14 @@
 #include <cstdint>
 
 #include "../position.h"
-#include "../search.h"
 #include "../types.h"
+
+// Forward declarations
+namespace Stockfish {
+namespace Search {
+struct Stack;
+}
+}
 
 namespace Gambo::PCE {
 
@@ -42,7 +48,7 @@ enum class CriticalityLevel : int {
 class PositionCriticalityEngine {
 public:
     // Compute criticality score [0..255] from position features
-    static int evaluate(const Position& pos, const Search::Stack* ss, int depth);
+    static int evaluate(const Position& pos, const Stockfish::Search::Stack* ss, int depth);
 
     // Get criticality level from score
     static CriticalityLevel get_level(int score) {
@@ -56,12 +62,12 @@ private:
     // Signal extractors
     static int king_exposure(const Position& pos);
     static int forcing_move_density(const Position& pos);
-    static int evaluation_volatility(const Position& pos, const Search::Stack* ss);
-    static int pv_instability(const Search::Stack* ss);
+    static int evaluation_volatility(const Position& pos, const Stockfish::Search::Stack* ss);
+    static int pv_instability(const Stockfish::Search::Stack* ss);
     static int candidate_disagreement(const Position& pos);
     static int tactical_threat_density(const Position& pos);
     static int material_instability(const Position& pos);
-    static int search_tree_instability(const Search::Stack* ss);
+    static int search_tree_instability(const Stockfish::Search::Stack* ss);
 };
 
 }  // namespace Gambo::PCE

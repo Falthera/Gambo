@@ -25,8 +25,15 @@
 #include <cstdint>
 
 #include "../position.h"
-#include "../search.h"
 #include "../types.h"
+
+// Forward declarations
+namespace Stockfish {
+namespace Search {
+struct Stack;
+using PVMoves = std::vector<Move>;
+}
+}
 
 namespace Gambo::SID {
 
@@ -45,9 +52,9 @@ public:
     SearchInstabilityDetector() = default;
 
     // Update with current search state, returns instability level
-    InstabilityLevel update(const Position& pos, const Search::Stack* ss, 
+    InstabilityLevel update(const Position& pos, const Stockfish::Search::Stack* ss,
                            int depth, Value currentScore, Value prevScore,
-                           const Search::PVMoves* pv, const Search::PVMoves* prevPV);
+                           const Stockfish::Search::PVMoves* pv, const Stockfish::Search::PVMoves* prevPV);
 
     // Get current instability metrics
     int get_pv_changes() const { return pvChanges; }
@@ -62,7 +69,7 @@ public:
         tacticalVolatility = 0;
         totalInstability = 0;
         prevPV.clear();
-        prevScore = VALUE_NONE;
+        prevScore = Stockfish::VALUE_NONE;
     }
 
     // Check if verification search is needed
@@ -75,8 +82,8 @@ private:
     int evalSwings = 0;
     int tacticalVolatility = 0;
     int totalInstability = 0;
-    Search::PVMoves prevPV;
-    Value prevScore = VALUE_NONE;
+    Stockfish::Search::PVMoves prevPV;
+    Value prevScore = Stockfish::VALUE_NONE;
 };
 
 }  // namespace Gambo::SID

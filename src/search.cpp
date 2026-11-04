@@ -1126,7 +1126,7 @@ moves_loop:  // When in check, search starts here
             history += sharedHistory.move_type_entry(pos)[mtIdx][movedPiece][move.to_sq()] / 4;
         }
         
-        int r = contextual_reduction(pos, ss, improving, depth, moveCount, delta, history, threatCat, ss->ttPv);
+        int r = this->contextual_reduction(pos, ss, improving, depth, moveCount, delta, history, threatCat, ss->ttPv);
 
         // Increase reduction for ttPv nodes (*Scaler)
         // Larger values scale well
@@ -1191,7 +1191,7 @@ moves_loop:  // When in check, search starts here
                             + sharedHistory.pawn_entry(pos)[movedPiece][move.to_sq()];
 
                 // MTCH: Add move type history to history score
-                if (Search::use_move_type_history())
+if (use_move_type_history())
                 {
                     Search::MoveTypeClass mt = Search::move_type_class(pos, move, ss->inCheck);
                     int mtIdx = static_cast<int>(mt);
