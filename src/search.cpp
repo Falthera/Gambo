@@ -130,6 +130,8 @@ void update_all_stats(const Position& pos,
                       Depth           depth,
                       Move            ttMove);
 
+void syzygy_extend_pv(const OptionsMap&, const LimitsType&, Position&, RootMove&, Value&);
+
 void update_correction_history(const Position& pos,
                                Stack* const    ss,
                                Search::Worker& workerThread,
@@ -1624,6 +1626,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
             else
                 quietsSearched.push_back(move);
         }
+    }
 
     // Step 21. Check for mate and stalemate
     // All legal moves have been searched and if there are no legal moves, it
@@ -1683,7 +1686,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
         // TMIHH for capture moves
         if (Stockfish::use_threat_map_history())
         {
-            int tcat = threat_category(pos, pos.side_to_move(), Move::make(prevSq, prevSq), ss);
+            int tcat = threat_category(pos, pos.side_to_move(), Move::make<NORMAL>(prevSq, prevSq), ss);
             if (tcat > 0)
             {
                 auto& tmihhEntry = sharedHistory.threat_map_entry(pos)[static_cast<size_t>(tcat)][static_cast<size_t>(pos.piece_on(prevSq))][static_cast<size_t>(prevSq)];
