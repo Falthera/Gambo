@@ -120,9 +120,7 @@ bool is_shuffling(Move move, Stack* const ss, const Position& pos) {
         && (ss - 2)->currentMove.from_sq() == (ss - 4)->currentMove.to_sq();
 }
 
-}  // namespace
-
-// Forward declarations for helper functions used in search templates
+Forward declarations for helper functions used in search templates
 Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r50c);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
@@ -2545,10 +2543,3 @@ bool RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& po
 
 
 }  // namespace Stockfish
-
-// Explicit template instantiations
-template Value Search::Worker::search<Root>(Position&, Stack*, Value, Value, Depth, bool);
-template Value Search::Worker::search<PV>(Position&, Stack*, Value, Value, Depth, bool);
-template Value Search::Worker::search<NonPV>(Position&, Stack*, Value, Value, Depth, bool);
-template Value Search::Worker::qsearch<PV>(Position&, Stack*, Value, Value);
-template Value Search::Worker::qsearch<NonPV>(Position&, Stack*, Value, Value);
