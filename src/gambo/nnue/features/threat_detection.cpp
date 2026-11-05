@@ -21,6 +21,7 @@
 #include "threat_detection.h"
 
 #include "../../../position.h"
+#include "../../../bitboard.h"
 #include "../nnue_common.h"
 
 namespace Gambo::NNUE::Features {
@@ -153,7 +154,7 @@ void ThreatDetection::append_changed_indices(Color perspective, Square ksq,
         }
         
         // Add new threats from 'to'
-        Bitboard new_targets = pos.attacks_by(type_of(attacker), to, pos.pieces()) & pos.pieces(~perspective);
+        Bitboard new_targets = attacks_bb(type_of(attacker), to, pos.pieces()) & pos.pieces(~perspective);
         while (new_targets) {
             Square target = pop_lsb(new_targets);
             IndexType idx = make_index(perspective, attacker, to, target, pos.piece_on(target), ksq);
