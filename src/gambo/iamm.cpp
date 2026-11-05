@@ -29,7 +29,7 @@ void AttackMapManager::init(const Position& pos) {
 
     // Full initial calculation
     for (Bitboard b = pos.pieces(); b; ) {
-        Square s = pop_lsb(&b);
+        Square s = pop_lsb(b);
         Piece pc = pos.piece_on(s);
         Color c = color_of(pc);
         add_piece_attacks(pos, s, pc, true);
@@ -46,7 +46,7 @@ void AttackMapManager::full_recalc(const Position& pos) {
     attack_map.clear();
 
     for (Bitboard b = pos.pieces(); b; ) {
-        Square s = pop_lsb(&b);
+        Square s = pop_lsb(b);
         Piece pc = pos.piece_on(s);
         Color c = color_of(pc);
         add_piece_attacks(pos, s, pc, true);
@@ -180,7 +180,7 @@ void AttackMapManager::recalc_pins(const Position& pos) {
         Bitboard occupied = pos.pieces();
 
         for (Bitboard b = enemy_sliders; b; ) {
-            Square s = pop_lsb(&b);
+            Square s = pop_lsb(b);
             Piece pc = pos.piece_on(s);
             PieceType pt = type_of(pc);
 
@@ -194,6 +194,11 @@ void AttackMapManager::recalc_pins(const Position& pos) {
                         attack_map.pin_rays[pinned_sq] = LineBB[s][king_sq];
                         attack_map.pinners[pinned_sq] |= square_bb(s);
                     }
+                }
+            }
+        }
+    }
+}
                 }
             }
         }
@@ -216,7 +221,7 @@ void AttackMapManager::recalc_king_zones(const Position& pos) {
     }
 }
 
-Bitboard AttackMapManager::attackers_to(Square s, Color c) const {
+Bitboard AttackMapManager::attackers_to(const Position& pos, Square s, Color c) const {
     Bitboard result = attack_map.attackers[s];
     // Filter by color
     if (c == WHITE) result &= pos.pieces(WHITE);

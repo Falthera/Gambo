@@ -80,12 +80,12 @@ void PositionFeatureCacheManager::calc_pawn_structure(const Position& pos) {
         // Passed pawns
         Bitboard passed = 0;
         for (Bitboard b = pawns; b; ) {
-            Square s = pop_lsb(&b);
+            Square s = pop_lsb(b);
             if (c == WHITE) {
-                Bitboard front = forward_bb(BLACK, s);
+                Bitboard front = shift_up(square_bb(s));
                 if (!(front & enemy_pawns)) passed |= square_bb(s);
             } else {
-                Bitboard front = forward_bb(WHITE, s);
+                Bitboard front = shift_down(square_bb(s));
                 if (!(front & enemy_pawns)) passed |= square_bb(s);
             }
         }
@@ -94,8 +94,8 @@ void PositionFeatureCacheManager::calc_pawn_structure(const Position& pos) {
         // Isolated pawns
         Bitboard isolated = 0;
         for (Bitboard b = pawns; b; ) {
-            Square s = pop_lsb(&b);
-            Bitboard adjacent_files = adjacent_files_bb(file_of(s));
+            Square s = pop_lsb(b);
+            Bitboard adjacent_files = adjacent_file_bb(s);
             if (!(adjacent_files & pawns)) isolated |= square_bb(s);
         }
         ps.isolated_pawns[c] = isolated;
@@ -111,15 +111,15 @@ void PositionFeatureCacheManager::calc_pawn_structure(const Position& pos) {
         // Backward pawns
         Bitboard backward = 0;
         for (Bitboard b = pawns; b; ) {
-            Square s = pop_lsb(&b);
+            Square s = pop_lsb(b);
             if (c == WHITE) {
-                Bitboard rear = rearward_bb(WHITE, s);
-                if ((rear & pawns) && !(rear & pos.pieces(c, PAWN) & adjacent_files_bb(file_of(s)))) {
+                Bitboard rear = shift_down(square_bb(s));
+                if ((rear & pawns) && !(rear & pos.pieces(c, PAWN) & adjacent_file_bb(s))) {
                     backward |= square_bb(s);
                 }
             } else {
-                Bitboard rear = rearward_bb(BLACK, s);
-                if ((rear & pawns) && !(rear & pos.pieces(c, PAWN) & adjacent_files_bb(file_of(s)))) {
+                Bitboard rear = shift_up(square_bb(s));
+                if ((rear & pawns) && !(rear & pos.pieces(c, PAWN) & adjacent_file_bb(s))) {
                     backward |= square_bb(s);
                 }
             }
@@ -130,14 +130,14 @@ void PositionFeatureCacheManager::calc_pawn_structure(const Position& pos) {
         uint8_t islands = 0;
         Bitboard seen = 0;
         for (Bitboard b = pawns; b; ) {
-            Square s = pop_lsb(&b);
+            Square s = pop_lsb(b);
             if (seen & square_bb(s)) continue;
             islands++;
             Bitboard island = square_bb(s);
             Bitboard todo = square_bb(s);
             while (todo) {
-                Square sq = pop_lsb(&todo);
-                Bitboard adj = adjacent_files_bb(file_of(sq)) & pawns;
+                Square sq = pop_lsb(todo);
+                Bitboard adj = adjacent_file_bb(sq) & pawns;
                 todo |= adj & ~seen;
                 seen |= square_bb(sq);
                 island |= adj;
@@ -150,7 +150,7 @@ void PositionFeatureCacheManager::calc_pawn_structure(const Position& pos) {
         ps.candidate_pawns[c] = candidates;
 
         // Pawn attacks
-        ps.pawn_attacks[c] = pos.pawn_attacks_bb(c);
+        ps.pawn_attacks[c] = attacks_bb<PAWN>(square_bb(pawns), c);
 
         // Pawn structure score (simplified)
         int score = 0;
@@ -180,8 +180,8 @@ void PositionFeatureCacheManager::calc_king_safety(const Position& pos) {
         // Pinned pieces
         Bitboard pinned = 0;
         for (Bitboard b = pos.pieces(c); b; ) {
-            Square s = pop_lsb(&b);
-            if (attack_manager.get_map().is_pinned(s, c)) {
+            Square s = pop_lsb(b);
+            if (attack_manager.is_pinned(s, c)) {
                 pinned |= square_bb(s);
             }
         }
@@ -189,8 +189,8 @@ void PositionFeatureCacheManager::calc_king_safety(const Position& pos) {
 
         // Pin rays
         for (Bitboard b = pos.pieces(c); b; ) {
-            Square s = pop_lsb(&b);
-            ks.pin_rays[s] = attack_manager.get_map().pin_ray(s);
+            Square s = pop_lsb(b);
+            ks.pin_rays[s] = attack_manager.pin_ray(s);
         }
 
         // King safety score
@@ -217,28 +217,28 @@ void PositionFeatureCacheManager::calc_mobility(const Position& pos) {
         Bitboard own = pos.pieces(c);
 
         for (Bitboard b = pos.pieces(c, KNIGHT); b; ) {
-            Square s = pop_lsb(&b);
+            Square s = pop_lsb(b);
             Bitboard targets = attacks_bb<KNIGHT>(s) & ~own;
             mob.knight_targets[c] |= targets;
             mob.knight_mobility[c] += popcount(targets);
         }
 
         for (Bitboard b = pos.pieces(c, BISHOP); b; ) {
-            Square s = pop_lsb(&b);
+            Square s = pop_lsb(b);
             Bitboard targets = attacks_bb<BISHOP>(s, occupied) & ~own;
             mob.bishop_targets[c] |= targets;
             mob.bishop_mobility[c] += popcount(targets);
         }
 
         for (Bitboard b = pos.pieces(c, ROOK); b; ) {
-            Square s = pop_lsb(&b);
+            Square s = pop_lsb(b);
             Bitboard targets = attacks_bb<ROOK>(s, occupied) & ~own;
             mob.rook_targets[c] |= targets;
             mob.rook_mobility[c] += popcount(targets);
         }
 
         for (Bitboard b = pos.pieces(c, QUEEN); b; ) {
-            Square s = pop_lsb(&b);
+            Square s = pop_lsb(b);
             Bitboard targets = attacks_bb<QUEEN>(s, occupied) & ~own;
             mob.queen_targets[c] |= targets;
             mob.queen_mobility[c] += popcount(targets);
@@ -261,7 +261,7 @@ void PositionFeatureCacheManager::calc_threats(const Position& pos) {
 
         // Hanging pieces (not defended, attacked by enemy)
         for (Bitboard b = own_pieces; b; ) {
-            Square s = pop_lsb(&b);
+            Square s = pop_lsb(b);
             Bitboard attackers = pos.attackers_to(s) & enemy_pieces;
             Bitboard defenders = pos.attackers_to(s) & own_pieces;
             if (attackers && !defenders) {
@@ -274,7 +274,7 @@ void PositionFeatureCacheManager::calc_threats(const Position& pos) {
 
         // Tactical threats (attacks on enemy pieces)
         for (Bitboard b = enemy_pieces; b; ) {
-            Square s = pop_lsb(&b);
+            Square s = pop_lsb(b);
             Bitboard attackers = pos.attackers_to(s) & own_pieces;
             if (attackers) {
                 th.tactical_threats[c] |= square_bb(s);
@@ -283,7 +283,7 @@ void PositionFeatureCacheManager::calc_threats(const Position& pos) {
 
         // X-ray attacks
         for (Bitboard b = pos.pieces(c, BISHOP, ROOK, QUEEN); b; ) {
-            Square s = pop_lsb(&b);
+            Square s = pop_lsb(b);
             PieceType pt = type_of(pos.piece_on(s));
             Bitboard attacks = attacks_bb(pt, s, pos.pieces());
             th.xray_attacks[c] |= attacks;
@@ -299,24 +299,29 @@ void PositionFeatureCacheManager::calc_threats(const Position& pos) {
 }
 
 void PositionFeatureCacheManager::update_pawn_structure_make(const Position& pos, Move m) {
+    (void)m;
     // Simplified: recalc affected area
     // Full recalc for correctness
     calc_pawn_structure(pos);
 }
 
 void PositionFeatureCacheManager::update_pawn_structure_unmake(const Position& pos, Move m) {
+    (void)m;
     calc_pawn_structure(pos);
 }
 
 void PositionFeatureCacheManager::update_king_safety_make(const Position& pos, Move m) {
+    (void)m;
     calc_king_safety(pos);
 }
 
 void PositionFeatureCacheManager::update_mobility_make(const Position& pos, Move m) {
+    (void)m;
     calc_mobility(pos);
 }
 
 void PositionFeatureCacheManager::update_threats_make(const Position& pos, Move m) {
+    (void)m;
     calc_threats(pos);
 }
 

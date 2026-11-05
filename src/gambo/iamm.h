@@ -78,7 +78,7 @@ public:
     const AttackMap& get_map() const { return attack_map; }
 
     // Query helpers
-    Bitboard attackers_to(Square s, Color c) const;
+    Bitboard attackers_to(const Position& pos, Square s, Color c) const;
     Bitboard attacked_by(Color c) const;
     bool is_pinned(Square s, Color c) const;
     Bitboard pin_ray(Square s) const;
