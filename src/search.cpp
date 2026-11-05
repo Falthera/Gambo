@@ -1734,6 +1734,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
 // To fight this horizon effect, we implement this qsearch of tactical moves.
 // See https://www.chessprogramming.org/Horizon_Effect
 // and https://www.chessprogramming.org/Quiescence_Search
+// Forced rebuild marker: 2026-11-05
 Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta, NodeType nodeType) {
 
     // static_assert(nodeType != Root);
