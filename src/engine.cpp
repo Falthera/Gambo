@@ -69,7 +69,7 @@ Engine::Engine(std::optional<std::string> path) :
     options.add(  //
       "Debug Log File", Option("", [](const Option& o) {
           start_logger(o);
-          return std::nullopt;
+          return std::optional<std::string>{};
       }));
 
     options.add(  //
@@ -88,13 +88,13 @@ Engine::Engine(std::optional<std::string> path) :
     options.add(  //
       "Hash", Option(16, 1, MaxHashMB, [this](const Option& o) {
           set_tt_size(o);
-          return std::nullopt;
+          return std::optional<std::string>{};
       }));
 
     options.add(  //
       "Clear Hash", Option([this](const Option&) {
           search_clear();
-          return std::nullopt;
+          return std::optional<std::string>{};
       }));
 
     options.add(  //
@@ -124,7 +124,7 @@ Engine::Engine(std::optional<std::string> path) :
                     Search::set_style_mode(UCIEngine::to_lower(std::string(o)) == "ultra-aggressive"
                                              ? Search::StyleMode::UltraAggressive
                                              : Search::StyleMode::Balanced);
-                    return std::nullopt;
+                    return std::optional<std::string>{};
                 }));
 
     // Classical evaluation component toggles (for ablation testing)
@@ -143,7 +143,7 @@ Engine::Engine(std::optional<std::string> path) :
         std::string val = std::string(o);
         if (val != "Stockfish" && val != "Gambo" && val != "Blend")
             return std::string("Invalid NNUEBackend: must be Stockfish, Gambo, or Blend");
-        return std::nullopt;
+        return std::optional<std::string>{};
     }));
 
     // Blend weight for Stockfish+Gambo blend mode (0-100, Stockfish weight)
@@ -168,7 +168,7 @@ Engine::Engine(std::optional<std::string> path) :
     options.add(  //
       "SyzygyPath", Option("", [](const Option& o) {
           Tablebases::init(o);
-          return std::nullopt;
+          return std::optional<std::string>{};
       }));
 
     options.add("SyzygyProbeDepth", Option(1, 1, 100));
@@ -180,7 +180,7 @@ Engine::Engine(std::optional<std::string> path) :
     options.add(  //
       "EvalFile", Option(EvalFileDefaultName, [this](const Option& o) {
           load_network(o);
-          return std::nullopt;
+          return std::optional<std::string>{};
       }));
 
     Search::set_style_mode(Search::StyleMode::Balanced);
@@ -255,7 +255,7 @@ std::optional<PositionSetError> Engine::set_position(const std::string&         
         pos.do_move(m, states->back());
     }
 
-    return std::nullopt;
+    return std::optional<std::string>{};
 }
 
 // modifiers
