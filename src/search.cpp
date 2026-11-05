@@ -212,6 +212,10 @@ void update_correction_history(const Position& pos,
     (void)pos; (void)ss; (void)workerThread; (void)bonus;
 }
 
+}  // namespace
+
+namespace Search {
+
 // Forward declaration for syzygy_extend_pv
 void syzygy_extend_pv(const OptionsMap&, const LimitsType&, Position&, RootMove&, Value&);
 
