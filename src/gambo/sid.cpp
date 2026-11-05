@@ -29,7 +29,7 @@
 
 namespace Gambo::SID {
 
-SearchInstabilityDetector::InstabilityLevel SearchInstabilityDetector::update(
+InstabilityLevel SearchInstabilityDetector::update(
     const Position& pos, const Search::Stack* ss, int depth,
     Value currentScore, Value prevScore,
     const Search::PVMoves* pv, const Search::PVMoves* prevPV) {

@@ -25,6 +25,7 @@
 
 #include "../bitboard.h"
 #include "../evaluate.h"
+#include "../movegen.h"
 #include "../position.h"
 #include "../search.h"
 #include "../types.h"
@@ -89,10 +90,10 @@ int PositionCriticalityEngine::forcing_move_density(const Position& pos) {
     int forcingMoves = 0;
     int totalMoves = 0;
     
-    MoveList<ALL_MOVES> ml(pos);
+    MoveList<GenType::LEGAL> ml(pos);
     for (Move m : ml) {
         totalMoves++;
-        if (pos.gives_check(m, pos.checkers()) || pos.capture_stage(m) || m.type_of() == PROMOTION)
+        if (pos.gives_check(m) || pos.capture_stage(m) || m.type_of() == PROMOTION)
             forcingMoves++;
     }
     
@@ -101,14 +102,19 @@ int PositionCriticalityEngine::forcing_move_density(const Position& pos) {
 }
 
 int PositionCriticalityEngine::evaluation_volatility(const Position& pos, const Search::Stack* ss) {
-    // Estimate evaluation swing potential from static eval and material
-    int staticEval = Eval::evaluate(Eval::NNUE::Network{}, pos, *const_cast<Stack*>(ss), *const_cast<AccumulatorCaches*>(nullptr), 0);
+    // Estimate evaluation swing potential from material imbalance and position
+    (void)ss; // unused for now
     int material = pos.non_pawn_material();
+    int pieceCount = popcount(pos.pieces());
     
-    // Higher volatility when static eval is far from material balance
-    int imbalance = std::abs(staticEval);
-    int relativeImbalance = imbalance * 35 / (material + 1000);
-    return std::min(relativeImbalance, 35);
+    // Higher volatility in complex positions with many pieces and material imbalance
+    int imbalance = std::abs(pos.non_pawn_material(WHITE) - pos.non_pawn_material(BLACK));
+    int relativeImbalance = (material > 0) ? imbalance * 35 / (material + 1000) : 0;
+    
+    // Add complexity factor
+    int complexity = std::min(pieceCount * 2, 20);
+    
+    return std::min(relativeImbalance + complexity, 35);
 }
 
 int PositionCriticalityEngine::pv_instability(const Search::Stack* ss) {
@@ -128,7 +134,7 @@ int PositionCriticalityEngine::candidate_disagreement(const Position& pos) {
     int candidates = 0;
     int bestSee = -VALUE_INFINITE;
     
-    MoveList<ALL_MOVES> ml(pos);
+    MoveList<GenType::LEGAL> ml(pos);
     for (Move m : ml) {
         int see = pos.see(m);
         if (see > bestSee) bestSee = see;
