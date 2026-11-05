@@ -24,6 +24,7 @@
 namespace Gambo::NFAR {
 
 using namespace Stockfish;
+using namespace Stockfish::Eval::NNUE;
 
 FastAccumulatorRefresh::FastAccumulatorRefresh(size_t cache_size_)
     : cache_size(cache_size_), refresh_cache(cache_size) {
@@ -37,7 +38,7 @@ void FastAccumulatorRefresh::refresh_accumulator(const Position& pos,
                                                 AccumulatorState<FeatureSet>& accumulator,
                                                 AccumulatorCaches& caches) {
     // Try cache first
-    if (find_cached(pos, FeatureSet::Index, perspective, accumulator.accumulator)) {
+    if (find_cached(pos, FeatureSet::Index, perspective, accumulator.accumulator[perspective].data())) {
         stats.hits++;
         return;
     }
@@ -50,11 +51,11 @@ void FastAccumulatorRefresh::refresh_accumulator(const Position& pos,
         stats.full_refreshes++;
         // Call the standard refresh
         accumulator.refresh(pos, ft, caches, perspective);
-        store_cached(pos, FeatureSet::Index, perspective, accumulator.accumulator);
+        store_cached(pos, FeatureSet::Index, perspective, accumulator.accumulator[perspective].data());
     } else {
         stats.full_refreshes++;
         accumulator.refresh(pos, ft, caches, perspective);
-        store_cached(pos, FeatureSet::Index, perspective, accumulator.accumulator);
+        store_cached(pos, FeatureSet::Index, perspective, accumulator.accumulator[perspective].data());
     }
 }
 
@@ -160,8 +161,9 @@ void FastAccumulatorRefresh::reset_stats() {
 void FastAccumulatorRefresh::prefetch_likely(const Position& pos, const std::vector<Move>& moves) {
     // Prefetch likely next positions' cache entries
     for (Move m : moves) {
+        StateInfo st;
         Position next_pos = pos;
-        next_pos.do_move(m);
+        next_pos.do_move(m, st);
         // Just touch the cache line to bring it in
         uint64_t key = next_pos.key();
         for (auto& entry : refresh_cache) {

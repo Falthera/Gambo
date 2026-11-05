@@ -142,12 +142,11 @@ ResourceAllocation ResourceAllocator::combine_allocations(const ResourceAllocati
     return result;
 }
 
-void ResourceAllocator::apply_allocation(ResourceAllocation& alloc, Search::SearchParams& params,
-                                        Threads& threads) {
+void ResourceAllocator::apply_allocation(ResourceAllocation& alloc, ThreadPool& threads) {
     // Apply depth bonus to search parameters
     // This would integrate with the actual search parameters
     // For now, just store for reference
-    (void)params;
+    (void)alloc;
     (void)threads;
 }
 

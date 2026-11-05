@@ -70,8 +70,7 @@ public:
                                          int depth, const Search::PVMoves* pv);
 
     // Apply allocation to search parameters
-    void apply_allocation(ResourceAllocation& alloc, Search::SearchParams& params,
-                         Threads& threads);
+    void apply_allocation(ResourceAllocation& alloc, ThreadPool& threads);
 
     // Update from PCE and SID
     void update_pce(const PCE::PositionCriticalityEngine& pce, int score, PCE::CriticalityLevel level);

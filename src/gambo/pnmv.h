@@ -85,14 +85,14 @@ private:
     PNMVStats stats;
     std::vector<PNNode> node_pool;
     size_t node_pool_idx = 0;
-    int64_t start_time = 0;
+    std::int64_t start_time = 0;
 
     PNNode* create_node(Move m, PNNodeType type, PNNode* parent);
-    void evaluate_node(PNNode* node, const Position& pos, Search::Stack* ss, int depth);
+    void evaluate_node(PNNode* node, Position& pos, Search::Stack* ss, int depth);
     void update_ancestors(PNNode* node);
     PNNode* select_most_proving_node(PNNode* root);
     bool is_terminal(const Position& pos) const;
-    Value terminal_value(const Position& pos) const;
+    Value terminal_value(Position& pos) const;
 
     void reset_pool() { node_pool.clear(); node_pool_idx = 0; }
     PNNode* new_node(Move m, PNNodeType type, PNNode* parent);

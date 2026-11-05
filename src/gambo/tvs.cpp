@@ -17,6 +17,7 @@
 #include <limits>
 
 #include "../evaluate.h"
+#include "../movepick.h"
 #include "../position.h"
 #include "../search.h"
 #include "../thread.h"
@@ -32,14 +33,14 @@ VerificationResult TacticalVerification::verify_mate_claim(const Position& pos, 
     stats.total_verifications++;
 
     VerificationContext ctx;
-    ctx.pos = const_cast<Position&>(pos);
+    ctx.pos = const_cast<Position*>(&pos);
     ctx.ss = ss;
     ctx.claimed_score = mate_in > 0 ? VALUE_MATE - mate_in : -VALUE_MATE - mate_in;
     ctx.depth = std::max(depth, config.mate_verification_depth);
     ctx.ply = 0;
     ctx.budget_nodes = config.max_nodes;
     ctx.budget_time_ms = config.max_time_ms;
-    ctx.start_time = Time::now();
+    ctx.start_time = TimeManagement::now();
 
     VerificationResult result = mate_search(ctx, mate_in);
 
@@ -56,14 +57,14 @@ VerificationResult TacticalVerification::verify_win_claim(const Position& pos, S
     stats.total_verifications++;
 
     VerificationContext ctx;
-    ctx.pos = const_cast<Position&>(pos);
+    ctx.pos = const_cast<Position*>(&pos);
     ctx.ss = ss;
     ctx.claimed_score = score;
     ctx.depth = std::max(depth, config.win_verification_depth);
     ctx.ply = 0;
     ctx.budget_nodes = config.max_nodes;
     ctx.budget_time_ms = config.max_time_ms;
-    ctx.start_time = Time::now();
+    ctx.start_time = TimeManagement::now();
 
     VerificationResult result = search_verification(ctx, false);
 
@@ -80,14 +81,14 @@ VerificationResult TacticalVerification::verify_draw_claim(const Position& pos, 
     stats.total_verifications++;
 
     VerificationContext ctx;
-    ctx.pos = const_cast<Position&>(pos);
+    ctx.pos = const_cast<Position*>(&pos);
     ctx.ss = ss;
     ctx.claimed_score = VALUE_DRAW;
     ctx.depth = std::max(depth, config.draw_verification_depth);
     ctx.ply = 0;
     ctx.budget_nodes = config.max_nodes / 2;  // Less budget for draw
     ctx.budget_time_ms = config.max_time_ms / 2;
-    ctx.start_time = Time::now();
+    ctx.start_time = TimeManagement::now();
 
     VerificationResult result = search_verification(ctx, false);
 
@@ -104,20 +105,21 @@ VerificationResult TacticalVerification::verify_tactical_claim(const Position& p
     stats.total_verifications++;
 
     VerificationContext ctx;
-    ctx.pos = const_cast<Position&>(pos);
+    ctx.pos = const_cast<Position*>(&pos);
     ctx.ss = ss;
     ctx.claimed_score = score;
     ctx.depth = depth;
     ctx.ply = 0;
     ctx.budget_nodes = config.max_nodes;
     ctx.budget_time_ms = config.max_time_ms;
-    ctx.start_time = Time::now();
+    ctx.start_time = TimeManagement::now();
 
     // Try the claimed move first
-    if (claim_move != MOVE_NONE) {
-        ctx.pos.do_move(claim_move, ss);
-        Value reply_score = -verify_evaluate(ctx.pos, ctx.ss + 1);
-        ctx.pos.undo_move(claim_move);
+    if (claim_move != Move::none()) {
+        StateInfo st;
+        ctx.pos->do_move(claim_move, st);
+        Value reply_score = -verify_evaluate(*ctx.pos, ctx.ss + 1);
+        ctx.pos->undo_move(claim_move);
 
         if (reply_score <= ctx.claimed_score) {
             stats.refuted++;
@@ -143,12 +145,6 @@ VerificationResult TacticalVerification::search_verification(VerificationContext
     Value beta = ctx.claimed_score + 50;
 
     // Search with aspiration window around claimed score
-    Search::SearchParams params;
-    params.depth = ctx.depth;
-    params.nodes = ctx.budget_nodes;
-    params.start_time = ctx.start_time;
-    params.max_time = ctx.budget_time_ms;
-
     // In a real implementation, we'd call the search function here
     // For now, return UNKNOWN as placeholder
     stats.nodes_searched += 1000;  // placeholder
@@ -165,11 +161,11 @@ VerificationResult TacticalVerification::mate_search(VerificationContext& ctx, i
     if (budget_exhausted(ctx)) return VerificationResult::TIMEOUT;
 
     // Generate legal moves
-    MoveList<GenType::LEGAL> moves(ctx.pos);
+    MoveList<GenType::LEGAL> moves(*ctx.pos);
 
     if (moves.size() == 0) {
         // No legal moves - check if mate
-        if (ctx.pos.checkers()) {
+        if (ctx.pos->checkers()) {
             return VerificationResult::VERIFIED;
         }
         return VerificationResult::REFUTED;  // Stalemate
@@ -179,30 +175,32 @@ VerificationResult TacticalVerification::mate_search(VerificationContext& ctx, i
     for (Move m : moves) {
         if (budget_exhausted(ctx)) return VerificationResult::TIMEOUT;
 
-        ctx.pos.do_move(m, ctx.ss);
+        StateInfo st;
+        ctx.pos->do_move(m, st);
         ctx.ply++;
 
         // Opponent's turn - check if they have any defense
         bool has_defense = false;
-        MoveList<GenType::LEGAL> opp_moves(ctx.pos);
+        MoveList<GenType::LEGAL> opp_moves(*ctx.pos);
         for (Move opp_m : opp_moves) {
             if (budget_exhausted(ctx)) {
-                ctx.pos.undo_move(m);
+                ctx.pos->undo_move(m);
                 return VerificationResult::TIMEOUT;
             }
 
-            ctx.pos.do_move(opp_m, ctx.ss + 1);
+            StateInfo st2;
+            ctx.pos->do_move(opp_m, st2);
             // Check if opponent avoids mate
-            if (!ctx.pos.checkers()) {
+            if (!ctx.pos->checkers()) {
                 // Opponent not in check - could be defense
                 has_defense = true;
             }
-            ctx.pos.undo_move(opp_m);
+            ctx.pos->undo_move(opp_m);
 
             if (has_defense) break;
         }
 
-        ctx.pos.undo_move(m);
+        ctx.pos->undo_move(m);
         ctx.ply--;
 
         if (!has_defense) {
@@ -223,7 +221,7 @@ VerificationResult TacticalVerification::defense_search(VerificationContext& ctx
 bool TacticalVerification::budget_exhausted(const VerificationContext& ctx) const {
     // Check node budget
     // Check time budget
-    int64_t elapsed = Time::elapsed(ctx.start_time);
+    std::int64_t elapsed = TimeManagement::elapsed(ctx.start_time);
     if (elapsed >= ctx.budget_time_ms) return true;
 
     // Node budget would be tracked by search

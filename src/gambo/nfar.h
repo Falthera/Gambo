@@ -8,8 +8,7 @@
   GNU General Public License for more details.
 */
 
-// NFAR — NNUE Fast Accumulator Refresh
-// Improves accumulator refresh and reconstruction with caching and SIMD
+// NFAR — NNUE Fast Accumulator Refresh (stub)
 
 #ifndef GAMBO_NFAR_H_INCLUDED
 #define GAMBO_NFAR_H_INCLUDED
@@ -19,7 +18,6 @@
 #include <cstdint>
 #include <vector>
 
-#include "../nnue/nnue_accumulator.h"
 #include "../nnue/nnue_common.h"
 #include "../position.h"
 #include "../types.h"
@@ -27,16 +25,17 @@
 namespace Gambo::NFAR {
 
 using namespace Stockfish;
+using namespace Stockfish::Eval::NNUE;
 
 struct RefreshCacheEntry {
-    std::array<std::int16_t, MaxAccumulatorSize> accumulator;
-    uint64_t position_key;
-    uint8_t feature_set_id;
-    uint8_t perspective;
-    bool valid;
-    int age;  // for LRU eviction
+    std::vector<std::int16_t> accumulator;
+    uint64_t position_key = 0;
+    uint8_t feature_set_id = 0;
+    uint8_t perspective = 0;
+    bool valid = false;
+    int age = 0;
 
-    RefreshCacheEntry() : position_key(0), feature_set_id(0), perspective(0), valid(false), age(0) {}
+    RefreshCacheEntry() = default;
 };
 
 struct RefreshStats {
@@ -45,6 +44,10 @@ struct RefreshStats {
     std::atomic<uint64_t> full_refreshes{0};
     std::atomic<uint64_t> incremental_refreshes{0};
     std::atomic<uint64_t> cache_evictions{0};
+
+    RefreshStats() = default;
+    RefreshStats(const RefreshStats&) = delete;
+    RefreshStats& operator=(const RefreshStats&) = delete;
 };
 
 class FastAccumulatorRefresh {
@@ -52,7 +55,6 @@ public:
     FastAccumulatorRefresh(size_t cache_size = 1024);
     ~FastAccumulatorRefresh() = default;
 
-    // Main refresh interface
     template<typename FeatureSet>
     void refresh_accumulator(const Position& pos,
                             const FeatureTransformer<FeatureSet>& ft,
@@ -60,7 +62,6 @@ public:
                             AccumulatorState<FeatureSet>& accumulator,
                             AccumulatorCaches& caches);
 
-    // Incremental update
     template<typename FeatureSet>
     void update_incremental(const Position& pos,
                            const FeatureTransformer<FeatureSet>& ft,
@@ -70,34 +71,24 @@ public:
                            AccumulatorCaches& caches,
                            bool forward);
 
-    // Cache management
     void clear_cache();
-    void resize_cache(size_t new_size);
-    RefreshStats get_stats() const { return stats; }
+    void resize_cache(size_t);
+    const RefreshStats& get_stats() const { return stats; }
     void reset_stats();
-
-    // Prefetch for likely positions
-    void prefetch_likely(const Position& pos, const std::vector<Move>& moves);
 
 private:
     std::vector<RefreshCacheEntry> refresh_cache;
-    size_t cache_size;
+    size_t cache_size = 1024;
     RefreshStats stats;
     std::atomic<uint32_t> current_age{0};
 
-    // Cache lookup
-    bool find_cached(const Position& pos, uint8_t feature_set_id, uint8_t perspective,
-                    std::int16_t* out_accumulator);
-
-    // Store in cache
-    void store_cached(const Position& pos, uint8_t feature_set_id, uint8_t perspective,
-                     const std::int16_t* accumulator);
-
-    // SIMD-optimized copy
+    bool find_cached(const Position& pos, uint8_t feature_set_id,
+                     uint8_t perspective, std::int16_t* out_accumulator);
+    void store_cached(const Position& pos, uint8_t feature_set_id,
+                      uint8_t perspective, const std::int16_t* accumulator);
     void simd_copy_accumulator(const std::int16_t* src, std::int16_t* dst, size_t size);
-
-    // Check if incremental is beneficial
     bool use_incremental(const Position& pos, Square changed_sq, int depth) const;
+    void prefetch_likely(const Position& pos, const std::vector<Move>& moves);
 };
 
 }  // namespace Gambo::NFAR

@@ -43,14 +43,14 @@ struct VerificationConfig {
 };
 
 struct VerificationContext {
-    Position& pos;
-    Search::Stack* ss;
-    Value claimed_score;
-    int depth;
-    int ply;
-    int budget_nodes;
-    int budget_time_ms;
-    int64_t start_time;
+    Position* pos = nullptr;
+    Search::Stack* ss = nullptr;
+    Value claimed_score = VALUE_NONE;
+    int depth = 0;
+    int ply = 0;
+    int budget_nodes = 0;
+    int budget_time_ms = 0;
+    std::int64_t start_time = 0;
 };
 
 struct VerificationStats {

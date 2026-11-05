@@ -16,6 +16,7 @@
 #include <chrono>
 
 #include "../evaluate.h"
+#include "../movepick.h"
 #include "../position.h"
 #include "../search.h"
 #include "../thread.h"
@@ -47,16 +48,16 @@ PNNode* ProofNumberMateVerifier::create_node(Move m, PNNodeType type, PNNode* pa
     return new_node(m, type, parent);
 }
 
-void ProofNumberMateVerifier::evaluate_node(PNNode* node, const Position& pos, Search::Stack* ss, int depth) {
+void ProofNumberMateVerifier::evaluate_node(PNNode* node, Position& pos, Search::Stack* ss, int depth) {
     if (depth <= 0 || is_terminal(pos)) {
         node->eval = terminal_value(pos);
         node->evaluated = true;
 
-        if (node->eval >= VALUE_MATE_IN_MAX) {
+        if (node->eval >= VALUE_MATE_IN_MAX_PLY) {
             // Proven mate
             node->proof_number = 0;
             node->disproof_number = config.infinity;
-        } else if (node->eval <= -VALUE_MATE_IN_MAX) {
+        } else if (node->eval <= -VALUE_MATE_IN_MAX_PLY) {
             // Disproven mate (mated)
             node->proof_number = config.infinity;
             node->disproof_number = 0;
@@ -79,7 +80,8 @@ void ProofNumberMateVerifier::evaluate_node(PNNode* node, const Position& pos, S
     node->type = (pos.side_to_move() == WHITE) ? PNNodeType::ATTACKER : PNNodeType::DEFENDER;
 
     for (Move m : moves) {
-        pos.do_move(m, ss);
+        StateInfo st;
+        pos.do_move(m, st);
         PNNode* child = create_node(m, (node->type == PNNodeType::ATTACKER) ? PNNodeType::DEFENDER : PNNodeType::ATTACKER, node);
         node->children.push_back(child);
         pos.undo_move(m);
@@ -87,7 +89,8 @@ void ProofNumberMateVerifier::evaluate_node(PNNode* node, const Position& pos, S
 
     // Evaluate children
     for (PNNode* child : node->children) {
-        pos.do_move(child->move, ss);
+        StateInfo st;
+        pos.do_move(child->move, st);
         evaluate_node(child, pos, ss, depth - 1);
         pos.undo_move(child->move);
     }
@@ -174,7 +177,7 @@ bool ProofNumberMateVerifier::is_terminal(const Position& pos) const {
     return pos.checkers() || pos.pieces(WHITE, KING) == 0 || pos.pieces(BLACK, KING) == 0;
 }
 
-Value ProofNumberMateVerifier::terminal_value(const Position& pos) const {
+Value ProofNumberMateVerifier::terminal_value(Position& pos) const {
     if (pos.checkers()) {
         // Side to move is in check - check for mate
         MoveList<GenType::LEGAL> moves(pos);
@@ -190,13 +193,14 @@ Value ProofNumberMateVerifier::terminal_value(const Position& pos) const {
 bool ProofNumberMateVerifier::verify_mate_in(const Position& pos, Search::Stack* ss, int mate_in, int max_depth) {
     stats = {};
     reset_pool();
-    start_time = Time::now();
+    start_time = TimeManagement::now();
 
     // Create root node (attacker tries to prove mate)
-    PNNode* root = new_node(MOVE_NONE, PNNodeType::ATTACKER, nullptr);
+    PNNode* root = new_node(Move::none(), PNNodeType::ATTACKER, nullptr);
 
     // Evaluate with proof-number search
-    evaluate_node(root, pos, ss, max_depth);
+    Position mutable_pos = pos;
+    evaluate_node(root, mutable_pos, ss, max_depth);
 
     // Check if proven
     bool proven = (root->proof_number == 0);
