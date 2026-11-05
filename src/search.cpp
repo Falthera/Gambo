@@ -739,7 +739,7 @@ Value Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        return qsearch(pos, ss, alpha, beta, PvNode ? PV : NonPV);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -753,13 +753,9 @@ Value Worker::search(
     }
 
     // assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
-    if (!(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE)) ;
     // assert(PvNode || (alpha == beta - 1));
-    if (!(PvNode || (alpha == beta - 1))) ;
     // assert(0 < depth && depth < MAX_PLY);
-    if (!(0 < depth && depth < MAX_PLY)) ;
     // assert(!(PvNode && cutNode));
-    if (!(!(PvNode && cutNode))) ;
 
     PVMoves   pv;
     StateInfo st;
@@ -819,7 +815,6 @@ Value Worker::search(
     }
 
     // assert(0 <= ss->ply && ss->ply < MAX_PLY);
-    if (!(0 <= ss->ply && ss->ply < MAX_PLY)) ;
 
     Square prevSq  = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
     bestMove       = Move::none();
@@ -1079,7 +1074,6 @@ Value Worker::search(
         && !(is_valid(ttData.value) && ttData.value < probCutBeta))
     {
         // assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
-        if (!(probCutBeta < VALUE_INFINITE && probCutBeta > beta)) ;
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &captureHistory);
         Depth      probCutDepth = depth - 4;
@@ -1087,13 +1081,11 @@ Value Worker::search(
         while ((move = mp.next_move()) != Move::none())
         {
             // assert(move.is_ok());
-            if (!move.is_ok()) ;
 
             if (move == excludedMove || !pos.legal(move))
                 continue;
 
             // assert(pos.capture_stage(move));
-            if (!pos.capture_stage(move)) ;
 
             do_move(pos, move, st, ss);
 
@@ -1528,7 +1520,6 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
         undo_move(pos, move);
 
         // assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
-        if (!(value > -VALUE_INFINITE && value < VALUE_INFINITE)) ;
 
         // Step 20. Check for a new best move
         // Finished searching the move. If a stop occurred, the return value of
@@ -1571,7 +1562,6 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
                 rm.pv.resize(1);
 
                 // assert((ss + 1)->pv);
-                if (!((ss + 1)->pv)) ;
 
                 for (Move pvMove : *(ss + 1)->pv)
                     rm.pv.push_back(pvMove);
@@ -1612,7 +1602,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
                     // Track fail-high for dynamic attack bias
                     ss->failHighCount = std::min(ss->failHighCount + 1, 8);
                     // assert(value >= beta);  // Fail high - disabled to avoid template parsing issues
-                    goto update_stats_and_exit;
+                    break;
                 }
 
                 // Reduce other moves if we have found at least one score improvement
@@ -1634,7 +1624,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
                 quietsSearched.push_back(move);
         }
     }
-    update_stats_and_exit:
+    // update_stats_and_exit:
 
     // Step 21. Check for mate and stalemate
     // All legal moves have been searched and if there are no legal moves, it
@@ -1642,7 +1632,6 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
     // return a fail low score.
 
     // assert(moveCount || !ss->inCheck || excludedMove || !MoveList<GenType::LEGAL>(pos).size());
-    if (!(moveCount || !ss->inCheck || excludedMove || !MoveList<GenType::LEGAL>(pos).size())) ;
 
     // Adjust best value for fail high cases
     if (bestValue >= beta && !is_decisive(bestValue) && !is_decisive(alpha))
@@ -1735,7 +1724,6 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
     }
 
     // assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
-    if (!(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE)) ;
 
     return bestValue;
 }
@@ -1754,9 +1742,7 @@ Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta, NodeTyp
     const bool PvNode = nodeType == PV;
 
     // assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
-    if (!(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE)) ;
     // assert(PvNode || (alpha == beta - 1));
-    if (!(PvNode || (alpha == beta - 1))) ;
 
     // Check if we have an upcoming move that draws by repetition
     if (alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
@@ -1797,7 +1783,6 @@ Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta, NodeTyp
         return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : VALUE_DRAW;
 
     // assert(0 <= ss->ply && ss->ply < MAX_PLY);
-    if (!(0 <= ss->ply && ss->ply < MAX_PLY)) ;
 
     // Step 3. Transposition table lookup
     posKey                         = pos.key();
@@ -1945,11 +1930,10 @@ Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta, NodeTyp
         // Step 7. Make and search the move
         do_move(pos, move, st, givesCheck, ss);
 
-        value = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha);
+        value = -qsearch(pos, ss + 1, -beta, -alpha, nodeType);
         undo_move(pos, move);
 
         // assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
-        if (!(value > -VALUE_INFINITE && value < VALUE_INFINITE)) ;
 
         // Step 8. Check for a new best move
         if (value > bestValue)
@@ -2001,8 +1985,6 @@ Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta, NodeTyp
                    unadjustedStaticEval, tt.generation());
 
     // assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
-    // assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
-    if (!(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE)) ;
 
     return bestValue;
 }
