@@ -255,7 +255,7 @@ std::optional<PositionSetError> Engine::set_position(const std::string&         
         pos.do_move(m, states->back());
     }
 
-    return std::optional<std::string>{};
+    return std::nullopt;
 }
 
 // modifiers
