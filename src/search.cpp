@@ -754,13 +754,13 @@ Value Worker::search(
     }
 
     // assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
-    if (!(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE)) {}
+    if (!(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE)) ;
     // assert(PvNode || (alpha == beta - 1));
-    if (!(PvNode || (alpha == beta - 1))) {}
+    if (!(PvNode || (alpha == beta - 1))) ;
     // assert(0 < depth && depth < MAX_PLY);
-    if (!(0 < depth && depth < MAX_PLY)) {}
+    if (!(0 < depth && depth < MAX_PLY)) ;
     // assert(!(PvNode && cutNode));
-    if (!(!(PvNode && cutNode))) {}
+    if (!(!(PvNode && cutNode))) ;
 
     PVMoves   pv;
     StateInfo st;
@@ -820,7 +820,7 @@ Value Worker::search(
     }
 
     // assert(0 <= ss->ply && ss->ply < MAX_PLY);
-    if (!(0 <= ss->ply && ss->ply < MAX_PLY)) {}
+    if (!(0 <= ss->ply && ss->ply < MAX_PLY)) ;
 
     Square prevSq  = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
     bestMove       = Move::none();
@@ -1080,7 +1080,7 @@ Value Worker::search(
         && !(is_valid(ttData.value) && ttData.value < probCutBeta))
     {
         // assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
-        if (!(probCutBeta < VALUE_INFINITE && probCutBeta > beta)) {}
+        if (!(probCutBeta < VALUE_INFINITE && probCutBeta > beta)) ;
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &captureHistory);
         Depth      probCutDepth = depth - 4;
@@ -1088,13 +1088,13 @@ Value Worker::search(
         while ((move = mp.next_move()) != Move::none())
         {
             // assert(move.is_ok());
-            if (!move.is_ok()) {}
+            if (!move.is_ok()) ;
 
             if (move == excludedMove || !pos.legal(move))
                 continue;
 
             // assert(pos.capture_stage(move));
-            if (!pos.capture_stage(move)) {}
+            if (!pos.capture_stage(move)) ;
 
             do_move(pos, move, st, ss);
 
@@ -1147,7 +1147,7 @@ moves_loop:  // When in check, search starts here
     while ((move = mp.next_move()) != Move::none())
     {
         // assert(move.is_ok());
-        if (!move.is_ok()) {}
+        if (!move.is_ok()) ;
 
         if (move == excludedMove)
             continue;
@@ -1529,7 +1529,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
         undo_move(pos, move);
 
         // assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
-        if (!(value > -VALUE_INFINITE && value < VALUE_INFINITE)) {}
+        if (!(value > -VALUE_INFINITE && value < VALUE_INFINITE)) ;
 
         // Step 20. Check for a new best move
         // Finished searching the move. If a stop occurred, the return value of
@@ -1572,7 +1572,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
                 rm.pv.resize(1);
 
                 // assert((ss + 1)->pv);
-                if (!((ss + 1)->pv)) {}
+                if (!((ss + 1)->pv)) ;
 
                 for (Move pvMove : *(ss + 1)->pv)
                     rm.pv.push_back(pvMove);
@@ -1621,7 +1621,6 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
                     depth -= 2;
 
                 // assert(depth > 0);
-                if (!(depth > 0)) {}
                 alpha = value;  // Update alpha! Always alpha < beta
             }
         }
@@ -1644,10 +1643,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
     // return a fail low score.
 
     // assert(moveCount || !ss->inCheck || excludedMove || !MoveList<GenType::LEGAL>(pos).size());
-    if (!(moveCount || !ss->inCheck || excludedMove || !MoveList<GenType::LEGAL>(pos).size()))
-    {
-        // This should never happen, but avoid assert in template body
-    }
+    if (!(moveCount || !ss->inCheck || excludedMove || !MoveList<GenType::LEGAL>(pos).size())) ;
 
     // Adjust best value for fail high cases
     if (bestValue >= beta && !is_decisive(bestValue) && !is_decisive(alpha))
@@ -1740,10 +1736,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
     }
 
     // assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
-    if (!(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE))
-    {
-        // This should never happen
-    }
+    if (!(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE)) ;
 
     return bestValue;
 }
@@ -1762,9 +1755,9 @@ Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
     constexpr bool PvNode = nodeType == PV;
 
     // assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
-    if (!(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE)) {}
+    if (!(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE)) ;
     // assert(PvNode || (alpha == beta - 1));
-    if (!(PvNode || (alpha == beta - 1))) {}
+    if (!(PvNode || (alpha == beta - 1))) ;
 
     // Check if we have an upcoming move that draws by repetition
     if (alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
@@ -1805,7 +1798,7 @@ Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
         return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : VALUE_DRAW;
 
     // assert(0 <= ss->ply && ss->ply < MAX_PLY);
-    if (!(0 <= ss->ply && ss->ply < MAX_PLY)) {}
+    if (!(0 <= ss->ply && ss->ply < MAX_PLY)) ;
 
     // Step 3. Transposition table lookup
     posKey                         = pos.key();
@@ -1957,7 +1950,7 @@ Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
         undo_move(pos, move);
 
         // assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
-        if (!(value > -VALUE_INFINITE && value < VALUE_INFINITE)) {}
+        if (!(value > -VALUE_INFINITE && value < VALUE_INFINITE)) ;
 
         // Step 8. Check for a new best move
         if (value > bestValue)
@@ -1987,7 +1980,7 @@ Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
         if (ss->inCheck)  // Checkmate!
         {
             // assert(!MoveList<GenType::LEGAL>(pos).size());
-            if (MoveList<GenType::LEGAL>(pos).size()) {}
+            if (MoveList<GenType::LEGAL>(pos).size()) ;
             return mated_in(ss->ply);  // Plies to mate from the root
         }
 
@@ -2009,10 +2002,8 @@ Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
                    unadjustedStaticEval, tt.generation());
 
     // assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
-    if (!(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE))
-    {
-        // This should never happen
-    }
+    // assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
+    if (!(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE)) ;
 
     return bestValue;
 }
