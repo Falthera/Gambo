@@ -78,7 +78,6 @@ SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
 	gambo/nnue/layers/clipped_relu.cpp gambo/nnue/layers/sqr_clipped_relu.cpp \
 	gambo/nnue/architecture.cpp gambo/nnue/network.cpp \
 	gambo/pce.cpp gambo/sid.cpp gambo/iamm.cpp gambo/ipfc.cpp gambo/nasa.cpp gambo/nfar.cpp gambo/asra.cpp gambo/tvs.cpp gambo/pnmv.cpp gambo/ptc.cpp gambo/cca.cpp gambo/edse.cpp gambo/rcra.cpp gambo/hsws.cpp \
-	gambo/pgmcts.cpp gambo/puct.cpp gambo/tags.cpp gambo/dagsearch.cpp gambo/pspa.cpp gambo/bnni.cpp gambo/mhne.cpp gambo/hams.cpp \
 	engine.cpp score.cpp memory.cpp
 
 OTHER_SRCS = universal/entry_x86.cpp universal/nnue_embed.cpp
@@ -111,8 +110,7 @@ HEADERS = benchmark.h bitboard.h evaluate.h misc.h movegen.h movepick.h history.
 		gambo/nnue/architecture.h gambo/nnue/nnue_common.h \
 		gambo/nnue/layers/affine_transform.h gambo/nnue/layers/affine_transform_sparse_input.h \
 		gambo/nnue/layers/clipped_relu.h gambo/nnue/layers/sqr_clipped_relu.h \
-		gambo/nnue/network.h gambo/pce.h gambo/sid.h gambo/iamm.h gambo/ipfc.h gambo/nasa.h gambo/nfar.h gambo/asra.h gambo/tvs.h gambo/pnmv.h gambo/ptc.h gambo/cca.h gambo/edse.h gambo/rcra.h gambo/hsws.h \
-		gambo/pgmcts.h gambo/puct.h gambo/tags.h gambo/dagsearch.h gambo/pspa.h gambo/bnni.h gambo/mhne.h gambo/hams.h
+		gambo/nnue/network.h gambo/pce.h gambo/sid.h gambo/iamm.h gambo/ipfc.h gambo/nasa.h gambo/ptc.h gambo/cca.h gambo/edse.h gambo/rcra.h gambo/hsws.h
 
 OBJS = $(notdir $(SRCS:.cpp=.o))
 
