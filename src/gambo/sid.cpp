@@ -29,6 +29,8 @@
 
 namespace Gambo::SID {
 
+using namespace Stockfish;
+
 InstabilityLevel SearchInstabilityDetector::update(
     const Position& pos, const Search::Stack* ss, int depth,
     Value currentScore, Value prevScore,
