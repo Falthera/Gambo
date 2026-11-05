@@ -427,9 +427,8 @@ bool Worker::iterative_deepening() {
             selDepth = 0;
 
             // PCE: Position Criticality Engine
-            Gambo::PCE::PositionCriticalityEngine pce;
-            int criticalityScore = pce.evaluate(rootPos, ss, rootDepth);
-            Gambo::PCE::CriticalityLevel criticality = pce.get_level(criticalityScore);
+            int criticalityScore = Gambo::PCE::PositionCriticalityEngine::evaluate(rootPos, ss, rootDepth);
+            Gambo::PCE::CriticalityLevel criticality = Gambo::PCE::PositionCriticalityEngine::get_level(criticalityScore);
 
             // SID: Search Instability Detection
             Gambo::SID::SearchInstabilityDetector sid;
