@@ -31,6 +31,8 @@
 
 namespace Gambo::PCE {
 
+using namespace Stockfish;
+
 int PositionCriticalityEngine::evaluate(const Position& pos, const Search::Stack* ss, int depth) {
     int score = 0;
     
