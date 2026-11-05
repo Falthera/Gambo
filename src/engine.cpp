@@ -72,17 +72,17 @@ Engine::Engine(std::optional<std::string> path) :
           return std::optional<std::string>{};
       }));
 
-    options.add(  //
+options.add(  //
       "NumaPolicy", Option("auto", [this](const Option& o) {
           set_numa_config_from_option(o);
-          return numa_config_information_as_string() + "\n"
-               + thread_allocation_information_as_string();
+          return std::optional<std::string>(numa_config_information_as_string() + "\n"
+                + thread_allocation_information_as_string());
       }));
 
     options.add(  //
       "Threads", Option(1, 1, MaxThreads, [this](const Option&) {
           resize_threads();
-          return thread_allocation_information_as_string();
+          return std::optional<std::string>(thread_allocation_information_as_string());
       }));
 
     options.add(  //
@@ -124,7 +124,7 @@ Engine::Engine(std::optional<std::string> path) :
                     Search::set_style_mode(UCIEngine::to_lower(std::string(o)) == "ultra-aggressive"
                                              ? Search::StyleMode::UltraAggressive
                                              : Search::StyleMode::Balanced);
-                    return std::optional<std::string>{};
+return std::nullopt;
                 }));
 
     // Classical evaluation component toggles (for ablation testing)
@@ -142,7 +142,7 @@ Engine::Engine(std::optional<std::string> path) :
     options.add("Eval.NNUEBackend", Option("Stockfish", [](const Option& o) {
         std::string val = std::string(o);
         if (val != "Stockfish" && val != "Gambo" && val != "Blend")
-            return std::string("Invalid NNUEBackend: must be Stockfish, Gambo, or Blend");
+            return std::optional<std::string>("Invalid NNUEBackend: must be Stockfish, Gambo, or Blend");
         return std::optional<std::string>{};
     }));
 
