@@ -83,6 +83,22 @@ SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
 
 OTHER_SRCS = universal/entry_x86.cpp universal/nnue_embed.cpp
 
+### Embedded NNUE network (for Windows/mingw where INCBIN doesn't work)
+TEMP_DIR             := $(CURDIR)/temp_builds
+UNIVERSAL_SRC_DIR    := $(CURDIR)/universal
+NNUE_EMBED_OBJ       := $(TEMP_DIR)/nnue_embed.o
+NET_SENTINEL         := $(TEMP_DIR)/.net-done
+
+$(NNUE_EMBED_OBJ): $(UNIVERSAL_SRC_DIR)/nnue_embed.cpp $(NET_SENTINEL) | $(TEMP_DIR)
+	$(CXX) -O2 -Wno-c++26-extensions --embed-dir=$(CURDIR) -c $< -o $@
+
+$(TEMP_DIR):
+	@mkdir -p $@
+
+$(NET_SENTINEL): | $(TEMP_DIR)
+	@cd $(CURDIR) && $(SHELL) ../scripts/net.sh
+	@touch $@
+
 HEADERS = benchmark.h bitboard.h evaluate.h misc.h movegen.h movepick.h history.h \
 		nnue/nnue_misc.h nnue/features/half_ka_v2_hm.h nnue/features/full_threats.h \
 		gambo/nnue/layers/affine_transform.h gambo/nnue/layers/affine_transform_sparse_input.h \
@@ -1197,8 +1213,8 @@ config-sanity: net
 	 test "$(comp)" = "clang" || test "$(comp)" = "armv7a-linux-androideabi16-clang" || \
 	 test "$(comp)" = "aarch64-linux-android21-clang")
 
-$(EXE): $(OBJS)
-	+$(CXX) -o $@ $(OBJS) $(LDFLAGS)
+$(EXE): $(OBJS) $(NNUE_EMBED_OBJ)
+	+$(CXX) -o $@ $(OBJS) $(NNUE_EMBED_OBJ) $(LDFLAGS)
 
 %.o: %.cpp
 	$(strip $(CXX) $(CPPFLAGS) $(CXXFLAGS)) -c -o $@ $<
@@ -1278,11 +1294,6 @@ ifneq ($(shell test "$(GCC_MAJOR)" -ge 15 2>/dev/null && echo ok),ok)
 $(error Universal build needs GCC 15+ for \#embed support; CXX=$(CXX) reports version '$(GCC_MAJOR)')
 endif
 
-UNIVERSAL_SRC_DIR    := $(CURDIR)/universal
-NNUE_EMBED_OBJ       := $(TEMP_DIR)/nnue_embed.o
-UNIVERSAL_ENTRY_OBJ  := $(TEMP_DIR)/entry_x86.o
-NET_SENTINEL         := $(TEMP_DIR)/.net-done
-
 # Top-level tracked items in src/ (directories and files)
 TRACKED_TOP := $(sort $(foreach f,$(SRCS) $(HEADERS) Makefile incbin,$(firstword $(subst /, ,$(f)))))
 
@@ -1319,12 +1330,6 @@ $(TEMP_DIR):
 	@mkdir -p $@
 
 # Download nnue files once in src/ (reused by every sub-arch via --embed-dir).
-$(NET_SENTINEL): | $(TEMP_DIR)
-	@cd $(CURDIR) && $(SHELL) ../scripts/net.sh
-	@touch $@
-
-$(NNUE_EMBED_OBJ): $(UNIVERSAL_SRC_DIR)/nnue_embed.cpp $(NET_SENTINEL) | $(TEMP_DIR)
-	$(CXX) -O2 -Wno-c++26-extensions --embed-dir=$(CURDIR) -c $< -o $@
 
 $(UNIVERSAL_ENTRY_OBJ): $(UNIVERSAL_SRC_DIR)/entry_x86.cpp | $(TEMP_DIR)
 	$(CXX) -O2 -c $< -o $@
