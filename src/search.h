@@ -732,12 +732,10 @@ class Worker {
     void undo_null_move(Position& pos);
 
     // This is the main search function, for both PV and non-PV nodes
-    template<NodeType nodeType>
-    Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode);
+    Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode, NodeType nodeType);
 
     // Quiescence search function, which is called by the main search
-    template<NodeType nodeType>
-    Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta);
+    Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, NodeType nodeType);
 
     int reduction(bool i, Depth d, int mn, int delta) const;
 

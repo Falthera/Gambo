@@ -456,7 +456,7 @@ bool Worker::iterative_deepening() {
                 Depth adjustedDepth =
                   std::max(1, rootDepth - failedHighCnt - 3 * (searchAgainCounter + 1) / 4);
                 rootDelta = beta - alpha;
-                bestValue = search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
+                bestValue = search(rootPos, ss, alpha, beta, adjustedDepth, false, Root);
 
                 // SID: Update instability detector
                 auto sidLevel = sid.update(rootPos, ss, adjustedDepth, bestValue, 
@@ -730,13 +730,12 @@ refreshTable.clear(network[numaAccessToken]);
 
 
 // Main search function for both PV and non-PV nodes
-template<Stockfish::NodeType nodeType>
 Value Worker::search(
-  Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode) {
+  Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode, NodeType nodeType) {
 
-    constexpr bool PvNode   = nodeType != NonPV;
-    constexpr bool rootNode = nodeType == Root;
-    const bool     allNode  = !(PvNode || cutNode);
+    const bool PvNode   = nodeType != NonPV;
+    const bool rootNode = nodeType == Root;
+    const bool allNode  = !(PvNode || cutNode);
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
@@ -1002,7 +1001,7 @@ Value Worker::search(
     // If eval is really low, skip search entirely and return the qsearch value.
     // For PvNodes, we must have a guard against mates being returned.
     if (!PvNode && eval < alpha - 465 - 300 * depth * depth - attackBias * 2)
-        return qsearch<NonPV>(pos, ss, alpha, beta);
+        return qsearch(pos, ss, alpha, beta, NonPV);
 
     // Step 8. Futility pruning: child node
     // The depth condition is important for mate finding.
@@ -1034,7 +1033,7 @@ Value Worker::search(
         Depth R = 7 + depth / 3;
         do_null_move(pos, st, ss);
 
-        Value nullValue = -search<NonPV>(pos, ss + 1, -beta, -beta + 1, depth - R, false);
+        Value nullValue = -search(pos, ss + 1, -beta, -beta + 1, depth - R, false, NonPV);
 
         undo_null_move(pos);
 
@@ -1051,7 +1050,7 @@ Value Worker::search(
             // until ply exceeds nmpMinPly.
             nmpMinPly = ss->ply + 3 * (depth - R) / 4;
 
-            Value v = search<NonPV>(pos, ss, beta - 1, beta, depth - R, false);
+            Value v = search(pos, ss, beta - 1, beta, depth - R, false, NonPV);
 
             nmpMinPly = 0;
 
@@ -1098,13 +1097,13 @@ Value Worker::search(
 
             do_move(pos, move, st, ss);
 
-            // Perform a preliminary qsearch to verify that the move holds
-            value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
+// Perform a preliminary qsearch to verify that the move holds
+            value = -qsearch(pos, ss + 1, -probCutBeta, -probCutBeta + 1, NonPV);
 
             // If the qsearch held, perform the regular search
             if (value >= probCutBeta && probCutDepth > 0)
-                value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, probCutDepth,
-                                       !cutNode);
+                value = -search(pos, ss + 1, -probCutBeta, -probCutBeta + 1, probCutDepth,
+                               !cutNode, NonPV);
 
             undo_move(pos, move);
 
@@ -1347,7 +1346,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
                 Depth singularDepth = newDepth / 2;
 
                 ss->excludedMove = move;
-                value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
+                value = search(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode, NonPV);
                 ss->excludedMove = Move::none();
 
                 if (value < singularBeta)
@@ -1474,7 +1473,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
             Depth d = std::max(1, std::min(newDepth - r / 1024, newDepth + 2)) + PvNode;
 
             ss->reduction = newDepth - d;
-            value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+            value         = -search(pos, ss + 1, -(alpha + 1), -alpha, d, true, NonPV);
             ss->reduction = 0;
 
             // Do a full-depth search when reduced LMR search fails high
@@ -1489,7 +1488,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
                 newDepth += doDeeperSearch - doShallowerSearch;
 
                 if (newDepth > d)
-                    value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+                    value = -search(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode, NonPV);
 
                 // Post LMR continuation history updates
                 update_continuation_histories(ss, movedPiece, move.to_sq(), 1415);
@@ -1503,9 +1502,9 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
             if (!ttData.move)
                 r += 1085;
 
-            // Note that if expected reduction is high, we reduce search depth here
-            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
-                                   newDepth - (r > 5039) - (r > 5223 && newDepth > 2), !cutNode);
+// Note that if expected reduction is high, we reduce search depth here
+            value = -search(pos, ss + 1, -(alpha + 1), -alpha,
+                           newDepth - (r > 5039) - (r > 5223 && newDepth > 2), !cutNode, NonPV);
         }
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
@@ -1522,7 +1521,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
                     || ttData.depth > 1))
                 newDepth = std::max(newDepth, 1);
 
-            value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+            value = -search(pos, ss + 1, -beta, -alpha, newDepth, false, PV);
         }
 
         // Step 19. Undo move
@@ -1748,11 +1747,11 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
 // To fight this horizon effect, we implement this qsearch of tactical moves.
 // See https://www.chessprogramming.org/Horizon_Effect
 // and https://www.chessprogramming.org/Quiescence_Search
-template<Stockfish::NodeType nodeType>
-Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
+Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta, NodeType nodeType) {
 
-    static_assert(nodeType != Root);
-    constexpr bool PvNode = nodeType == PV;
+    // static_assert(nodeType != Root);
+    if (nodeType == Root) return VALUE_NONE;
+    const bool PvNode = nodeType == PV;
 
     // assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
     if (!(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE)) ;
