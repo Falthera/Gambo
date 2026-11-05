@@ -40,7 +40,7 @@ VerificationResult TacticalVerification::verify_mate_claim(const Position& pos, 
     ctx.ply = 0;
     ctx.budget_nodes = config.max_nodes;
     ctx.budget_time_ms = config.max_time_ms;
-    ctx.start_time = TimeManagement::now();
+    ctx.start_time = time_manager.startTime;
 
     VerificationResult result = mate_search(ctx, mate_in);
 
@@ -64,7 +64,7 @@ VerificationResult TacticalVerification::verify_win_claim(const Position& pos, S
     ctx.ply = 0;
     ctx.budget_nodes = config.max_nodes;
     ctx.budget_time_ms = config.max_time_ms;
-    ctx.start_time = TimeManagement::now();
+    ctx.start_time = time_manager.startTime;
 
     VerificationResult result = search_verification(ctx, false);
 
@@ -88,7 +88,7 @@ VerificationResult TacticalVerification::verify_draw_claim(const Position& pos, 
     ctx.ply = 0;
     ctx.budget_nodes = config.max_nodes / 2;  // Less budget for draw
     ctx.budget_time_ms = config.max_time_ms / 2;
-    ctx.start_time = TimeManagement::now();
+    ctx.start_time = time_manager.startTime;
 
     VerificationResult result = search_verification(ctx, false);
 
@@ -112,7 +112,7 @@ VerificationResult TacticalVerification::verify_tactical_claim(const Position& p
     ctx.ply = 0;
     ctx.budget_nodes = config.max_nodes;
     ctx.budget_time_ms = config.max_time_ms;
-    ctx.start_time = TimeManagement::now();
+    ctx.start_time = time_manager.startTime;
 
     // Try the claimed move first
     if (claim_move != Move::none()) {
@@ -138,6 +138,8 @@ VerificationResult TacticalVerification::verify_tactical_claim(const Position& p
 }
 
 VerificationResult TacticalVerification::search_verification(VerificationContext& ctx, bool is_mate_search) {
+    (void)is_mate_search;
+
     // Simplified verification search - in practice would call search with bounds
     // For now, do a bounded search with the claimed score as alpha
 
@@ -155,6 +157,7 @@ VerificationResult TacticalVerification::search_verification(VerificationContext
 }
 
 VerificationResult TacticalVerification::mate_search(VerificationContext& ctx, int mate_in) {
+    (void)mate_in;
     // Proof-number-like mate verification
     // Search for forced mate within mate_in plies
 
@@ -213,15 +216,15 @@ VerificationResult TacticalVerification::mate_search(VerificationContext& ctx, i
 }
 
 VerificationResult TacticalVerification::defense_search(VerificationContext& ctx) {
+    (void)ctx;
     // Search for defensive resources
     // Placeholder - would do a more sophisticated search
     return VerificationResult::UNKNOWN;
 }
 
 bool TacticalVerification::budget_exhausted(const VerificationContext& ctx) const {
-    // Check node budget
     // Check time budget
-    std::int64_t elapsed = TimeManagement::elapsed(ctx.start_time);
+    TimePoint elapsed = time_manager.elapsed_time();
     if (elapsed >= ctx.budget_time_ms) return true;
 
     // Node budget would be tracked by search
@@ -231,7 +234,9 @@ bool TacticalVerification::budget_exhausted(const VerificationContext& ctx) cons
 Value TacticalVerification::verify_evaluate(const Position& pos, Search::Stack* ss) {
     // Quick evaluation for verification
     // Use classical eval for speed
-    return Eval::evaluate(pos, ss);
+    NNUE::AccumulatorStack accum_stack;
+    NNUE::AccumulatorCaches accum_caches(*threads.main_manager()->network());
+    return Eval::evaluate(*threads.main_manager()->network(), pos, accum_stack, accum_caches, 0);
 }
 
 }  // namespace Gambo::TVS

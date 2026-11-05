@@ -85,7 +85,7 @@ private:
     PNMVStats stats;
     std::vector<PNNode> node_pool;
     size_t node_pool_idx = 0;
-    std::int64_t start_time = 0;
+    TimePoint start_time;
 
     PNNode* create_node(Move m, PNNodeType type, PNNode* parent);
     void evaluate_node(PNNode* node, Position& pos, Search::Stack* ss, int depth);

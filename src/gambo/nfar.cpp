@@ -27,41 +27,33 @@ using namespace Stockfish;
 using namespace Stockfish::Eval::NNUE;
 
 FastAccumulatorRefresh::FastAccumulatorRefresh(size_t cache_size_)
-    : cache_size(cache_size_), refresh_cache(cache_size) {
+    : refresh_cache(cache_size_), cache_size(cache_size_) {
     clear_cache();
 }
 
 template<typename FeatureSet>
 void FastAccumulatorRefresh::refresh_accumulator(const Position& pos,
-                                                const FeatureTransformer<FeatureSet>& ft,
+                                                const FeatureTransformer& ft,
                                                 Color perspective,
                                                 AccumulatorState<FeatureSet>& accumulator,
                                                 AccumulatorCaches& caches) {
     // Try cache first
-    if (find_cached(pos, FeatureSet::Index, perspective, accumulator.accumulator[perspective].data())) {
+    if (find_cached(pos, FeatureSet::Index, perspective, accumulator.accumulation[perspective].data())) {
         stats.hits++;
         return;
     }
 
     stats.misses++;
 
-    // Check if we can do incremental
-    if (use_incremental(pos, SQ_NONE, 0)) {
-        // For now, do full refresh but track it
-        stats.full_refreshes++;
-        // Call the standard refresh
-        accumulator.refresh(pos, ft, caches, perspective);
-        store_cached(pos, FeatureSet::Index, perspective, accumulator.accumulator[perspective].data());
-    } else {
-        stats.full_refreshes++;
-        accumulator.refresh(pos, ft, caches, perspective);
-        store_cached(pos, FeatureSet::Index, perspective, accumulator.accumulator[perspective].data());
-    }
+    // For now, do full refresh
+    stats.full_refreshes++;
+    accumulator.refresh(pos, ft, caches, perspective);
+    store_cached(pos, FeatureSet::Index, perspective, accumulator.accumulation[perspective].data());
 }
 
 template<typename FeatureSet>
 void FastAccumulatorRefresh::update_incremental(const Position& pos,
-                                               const FeatureTransformer<FeatureSet>& ft,
+                                               const FeatureTransformer& ft,
                                                Color perspective,
                                                Square changed_sq,
                                                AccumulatorState<FeatureSet>& accumulator,
@@ -130,6 +122,7 @@ void FastAccumulatorRefresh::simd_copy_accumulator(const std::int16_t* src, std:
 }
 
 bool FastAccumulatorRefresh::use_incremental(const Position& pos, Square changed_sq, int depth) const {
+    (void)pos;
     // Use incremental for shallow depths or simple moves
     if (depth < 8) return true;
     if (changed_sq == SQ_NONE) return false;
@@ -162,8 +155,7 @@ void FastAccumulatorRefresh::prefetch_likely(const Position& pos, const std::vec
     // Prefetch likely next positions' cache entries
     for (Move m : moves) {
         StateInfo st;
-        Position next_pos = pos;
-        next_pos.do_move(m, st);
+        Position next_pos(pos, st, m);
         // Just touch the cache line to bring it in
         uint64_t key = next_pos.key();
         for (auto& entry : refresh_cache) {
@@ -177,35 +169,35 @@ void FastAccumulatorRefresh::prefetch_likely(const Position& pos, const std::vec
 
 // Explicit template instantiations for common feature sets
 template void FastAccumulatorRefresh::refresh_accumulator<Features::HalfKAv2_hm>(
-    const Position&, const FeatureTransformer<Features::HalfKAv2_hm>&, Color,
+    const Position&, const FeatureTransformer&, Color,
     AccumulatorState<Features::HalfKAv2_hm>&, AccumulatorCaches&);
 
 template void FastAccumulatorRefresh::refresh_accumulator<Features::KingSafety>(
-    const Position&, const FeatureTransformer<Features::KingSafety>&, Color,
+    const Position&, const FeatureTransformer&, Color,
     AccumulatorState<Features::KingSafety>&, AccumulatorCaches&);
 
 template void FastAccumulatorRefresh::refresh_accumulator<Features::PieceCoordination>(
-    const Position&, const FeatureTransformer<Features::PieceCoordination>&, Color,
+    const Position&, const FeatureTransformer&, Color,
     AccumulatorState<Features::PieceCoordination>&, AccumulatorCaches&);
 
 template void FastAccumulatorRefresh::refresh_accumulator<Features::FullThreats>(
-    const Position&, const FeatureTransformer<Features::FullThreats>&, Color,
+    const Position&, const FeatureTransformer&, Color,
     AccumulatorState<Features::FullThreats>&, AccumulatorCaches&);
 
 template void FastAccumulatorRefresh::update_incremental<Features::HalfKAv2_hm>(
-    const Position&, const FeatureTransformer<Features::HalfKAv2_hm>&, Color, Square,
+    const Position&, const FeatureTransformer&, Color, Square,
     AccumulatorState<Features::HalfKAv2_hm>&, AccumulatorCaches&, bool);
 
 template void FastAccumulatorRefresh::update_incremental<Features::KingSafety>(
-    const Position&, const FeatureTransformer<Features::KingSafety>&, Color, Square,
+    const Position&, const FeatureTransformer&, Color, Square,
     AccumulatorState<Features::KingSafety>&, AccumulatorCaches&, bool);
 
 template void FastAccumulatorRefresh::update_incremental<Features::PieceCoordination>(
-    const Position&, const FeatureTransformer<Features::PieceCoordination>&, Color, Square,
+    const Position&, const FeatureTransformer&, Color, Square,
     AccumulatorState<Features::PieceCoordination>&, AccumulatorCaches&, bool);
 
 template void FastAccumulatorRefresh::update_incremental<Features::FullThreats>(
-    const Position&, const FeatureTransformer<Features::FullThreats>&, Color, Square,
+    const Position&, const FeatureTransformer&, Color, Square,
     AccumulatorState<Features::FullThreats>&, AccumulatorCaches&, bool);
 
 }  // namespace Gambo::NFAR

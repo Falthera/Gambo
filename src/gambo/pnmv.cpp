@@ -193,7 +193,7 @@ Value ProofNumberMateVerifier::terminal_value(Position& pos) const {
 bool ProofNumberMateVerifier::verify_mate_in(const Position& pos, Search::Stack* ss, int mate_in, int max_depth) {
     stats = {};
     reset_pool();
-    start_time = TimeManagement::now();
+    start_time = TimePoint(0);
 
     // Create root node (attacker tries to prove mate)
     PNNode* root = new_node(Move::none(), PNNodeType::ATTACKER, nullptr);

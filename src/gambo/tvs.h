@@ -50,7 +50,7 @@ struct VerificationContext {
     int ply = 0;
     int budget_nodes = 0;
     int budget_time_ms = 0;
-    std::int64_t start_time = 0;
+    TimePoint start_time;
 };
 
 struct VerificationStats {
@@ -83,6 +83,7 @@ public:
 private:
     VerificationConfig config;
     VerificationStats stats;
+    TimeManagement time_manager;
 
     // Internal verification search
     VerificationResult search_verification(VerificationContext& ctx, bool is_mate_search);

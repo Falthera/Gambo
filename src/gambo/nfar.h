@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "../nnue/nnue_accumulator.h"
 #include "../nnue/nnue_common.h"
 #include "../position.h"
 #include "../types.h"
@@ -55,16 +56,17 @@ public:
     FastAccumulatorRefresh(size_t cache_size = 1024);
     ~FastAccumulatorRefresh() = default;
 
+    // Simplified interface matching the NNUE accumulator API
     template<typename FeatureSet>
     void refresh_accumulator(const Position& pos,
-                            const FeatureTransformer<FeatureSet>& ft,
+                            const FeatureTransformer& ft,
                             Color perspective,
                             AccumulatorState<FeatureSet>& accumulator,
                             AccumulatorCaches& caches);
 
     template<typename FeatureSet>
     void update_incremental(const Position& pos,
-                           const FeatureTransformer<FeatureSet>& ft,
+                           const FeatureTransformer& ft,
                            Color perspective,
                            Square changed_sq,
                            AccumulatorState<FeatureSet>& accumulator,
