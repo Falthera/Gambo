@@ -1409,8 +1409,6 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
         // Add extension to new depth
         newDepth += extension;
 
-        int r = 0;  // Reduction value
-
         // Decrease reduction for PvNodes (*Scaler)
         if (ss->ttPv)
             r -= 2766 + PvNode * 1017 + (ttData.value > alpha) * 838
@@ -2036,11 +2034,11 @@ int Worker::contextual_reduction(const Position& pos, const Stack* ss, bool impr
 // elapsed_time() returns the actual time elapsed since the start of the search.
 // This function is intended for use only when printing PV outputs, and not used
 // for making decisions within the search algorithm itself.
-TimePoint Worker::elapsed() {
+TimePoint Worker::elapsed() const {
     return main_manager()->tm.elapsed([this]() { return threads.nodes_searched(); });
 }
 
-TimePoint Worker::elapsed_time() { return main_manager()->tm.elapsed_time(); }
+TimePoint Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
 
 Value Worker::evaluate(const Position& pos) {
     return Eval::evaluate(this->network[this->numaAccessToken], pos, this->accumulatorStack, this->refreshTable,
