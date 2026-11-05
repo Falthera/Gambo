@@ -1393,7 +1393,6 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
             // over current beta
             else if (cutNode)
                 extension = -2;
-        }
 
         uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
 
