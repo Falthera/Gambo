@@ -14,9 +14,7 @@
 #ifndef GAMBO_TVS_H_INCLUDED
 #define GAMBO_TVS_H_INCLUDED
 
-#include <array>
 #include <cstdint>
-#include <vector>
 
 #include "../position.h"
 #include "../search.h"
@@ -27,10 +25,10 @@ namespace Gambo::TVS {
 using namespace Stockfish;
 
 enum class VerificationResult {
-    VERIFIED,      // Claim verified (mate, win, etc.)
-    REFUTED,       // Claim refuted (defense found)
-    UNKNOWN,       // Inconclusive within budget
-    TIMEOUT        // Search timeout
+    VERIFIED,
+    REFUTED,
+    UNKNOWN,
+    TIMEOUT
 };
 
 struct VerificationConfig {
@@ -40,17 +38,6 @@ struct VerificationConfig {
     int mate_verification_depth = 24;
     int win_verification_depth = 16;
     int draw_verification_depth = 12;
-};
-
-struct VerificationContext {
-    Position* pos = nullptr;
-    Search::Stack* ss = nullptr;
-    Value claimed_score = VALUE_NONE;
-    int depth = 0;
-    int ply = 0;
-    int budget_nodes = 0;
-    int budget_time_ms = 0;
-    TimePoint start_time;
 };
 
 struct VerificationStats {
@@ -66,39 +53,20 @@ class TacticalVerification {
 public:
     TacticalVerification() = default;
 
-    // Main verification entry points
-    VerificationResult verify_mate_claim(const Position& pos, Search::Stack* ss, int depth, int mate_in);
-    VerificationResult verify_win_claim(const Position& pos, Search::Stack* ss, int depth, Value score);
-    VerificationResult verify_draw_claim(const Position& pos, Search::Stack* ss, int depth);
-    VerificationResult verify_tactical_claim(const Position& pos, Search::Stack* ss, int depth, Value score, Move claim_move);
+    VerificationResult verify_mate_claim(const Position&, Search::Stack*, int, int);
+    VerificationResult verify_win_claim(const Position&, Search::Stack*, int, Value);
+    VerificationResult verify_draw_claim(const Position&, Search::Stack*, int);
+    VerificationResult verify_tactical_claim(const Position&, Search::Stack*, int, Value, Move);
 
-    // Configuration
-    void set_config(const VerificationConfig& cfg) { config = cfg; }
-    const VerificationConfig& get_config() const { return config; }
+    void set_config(const VerificationConfig& cfg);
+    const VerificationConfig& get_config() const;
 
-    // Statistics
-    const VerificationStats& get_stats() const { return stats; }
-    void reset_stats() { stats = {}; }
+    const VerificationStats& get_stats() const;
+    void reset_stats();
 
 private:
     VerificationConfig config;
     VerificationStats stats;
-    TimeManagement time_manager;
-
-    // Internal verification search
-    VerificationResult search_verification(VerificationContext& ctx, bool is_mate_search);
-
-    // Mate search with proof-number-like approach
-    VerificationResult mate_search(VerificationContext& ctx, int mate_in);
-
-    // Defensive resource search
-    VerificationResult defense_search(VerificationContext& ctx);
-
-    // Check if time/nodes budget exhausted
-    bool budget_exhausted(const VerificationContext& ctx) const;
-
-    // Evaluate position for verification
-    Value verify_evaluate(const Position& pos, Search::Stack* ss);
 };
 
 }  // namespace Gambo::TVS
