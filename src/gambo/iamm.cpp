@@ -199,11 +199,6 @@ void AttackMapManager::recalc_pins(const Position& pos) {
         }
     }
 }
-                }
-            }
-        }
-    }
-}
 
 void AttackMapManager::recalc_king_zones(const Position& pos) {
     for (Color c : {WHITE, BLACK}) {

@@ -24,6 +24,15 @@ namespace Gambo::IPFC {
 
 using namespace Stockfish;
 
+// Helper functions for adjacent files
+constexpr Bitboard adjacent_file_bb(Square s) {
+    return (file_of(s) > FILE_A ? square_bb(Square(int(s) - 1)) : Bitboard(0))
+         | (file_of(s) < FILE_H ? square_bb(Square(int(s) + 1)) : Bitboard(0));
+}
+
+constexpr Bitboard shift_up(Bitboard b) { return shift<NORTH>(b); }
+constexpr Bitboard shift_down(Bitboard b) { return shift<SOUTH>(b); }
+
 void PositionFeatureCacheManager::init(const Position& pos) {
     cache.clear();
     cache.generation = 0;
@@ -150,7 +159,7 @@ void PositionFeatureCacheManager::calc_pawn_structure(const Position& pos) {
         ps.candidate_pawns[c] = candidates;
 
         // Pawn attacks
-        ps.pawn_attacks[c] = attacks_bb<PAWN>(square_bb(pawns), c);
+        ps.pawn_attacks[c] = (c == WHITE) ? pawn_attacks_bb<WHITE>(pawns) : pawn_attacks_bb<BLACK>(pawns);
 
         // Pawn structure score (simplified)
         int score = 0;
