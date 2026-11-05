@@ -117,10 +117,10 @@ Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r50c);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
 void  update_quiet_histories(
-   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
+   const Position& pos, Stack* ss, Worker& workerThread, Move move, int bonus);
 void update_all_stats(const Position& pos,
                       Stack*          ss,
-                      Search::Worker& workerThread,
+                      Worker& workerThread,
                       Move            bestMove,
                       Square          prevSq,
                       SearchedList&   quietsSearched,
@@ -130,7 +130,7 @@ void update_all_stats(const Position& pos,
 
 void update_correction_history(const Position& pos,
                                Stack* const    ss,
-                               Search::Worker& workerThread,
+                               Worker& workerThread,
                                const int       bonus);
 
 // Helper function definitions (must be before template functions that use them)
@@ -185,14 +185,14 @@ void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
 }
 
 void  update_quiet_histories(
-   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus) {
+   const Position& pos, Stack* ss, Worker& workerThread, Move move, int bonus) {
     // Implementation here if needed
     (void)pos; (void)ss; (void)workerThread; (void)move; (void)bonus;
 }
 
 void update_all_stats(const Position& pos,
                       Stack*          ss,
-                      Search::Worker& workerThread,
+                      Worker& workerThread,
                       Move            bestMove,
                       Square          prevSq,
                       SearchedList&   quietsSearched,
@@ -206,7 +206,7 @@ void update_all_stats(const Position& pos,
 
 void update_correction_history(const Position& pos,
                                Stack* const    ss,
-                               Search::Worker& workerThread,
+                               Worker& workerThread,
                                const int       bonus) {
     // Implementation here if needed
     (void)pos; (void)ss; (void)workerThread; (void)bonus;
@@ -731,7 +731,7 @@ refreshTable.clear(network[numaAccessToken]);
 
 // Main search function for both PV and non-PV nodes
 template<Stockfish::NodeType nodeType>
-Value Search::Worker::search(
+Value Worker::search(
   Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode) {
 
     constexpr bool PvNode   = nodeType != NonPV;
@@ -1732,7 +1732,7 @@ history += sharedHistory.move_type_entry(pos)[static_cast<size_t>(mtIdx)][static
 // See https://www.chessprogramming.org/Horizon_Effect
 // and https://www.chessprogramming.org/Quiescence_Search
 template<Stockfish::NodeType nodeType>
-Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
+Value Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
 
     static_assert(nodeType != Root);
     constexpr bool PvNode = nodeType == PV;
@@ -1983,14 +1983,14 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     return bestValue;
 }
 
-int Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
+int Worker::reduction(bool i, Depth d, int mn, int delta) const {
     int reductionScale = reductions[d] * reductions[mn];
     return reductionScale - delta * 617 / rootDelta + !i * reductionScale * 194 / 512 + 1027;
 }
 
 // LMRC — LMR Context Calibration
 // Returns adjusted reduction based on search context
-int Search::Worker::contextual_reduction(const Position& pos, const Stack* ss, bool improving, Depth depth, int moveCount, int delta, int history, int threatCat, bool ttPv) const {
+int Worker::contextual_reduction(const Position& pos, const Stack* ss, bool improving, Depth depth, int moveCount, int delta, int history, int threatCat, bool ttPv) const {
     int r = reduction(improving, depth, moveCount, delta);
     
     // Reduce less for moves with good history
@@ -2031,20 +2031,20 @@ int Search::Worker::contextual_reduction(const Position& pos, const Stack* ss, b
 // elapsed_time() returns the actual time elapsed since the start of the search.
 // This function is intended for use only when printing PV outputs, and not used
 // for making decisions within the search algorithm itself.
-TimePoint Search::Worker::elapsed() const {
+TimePoint Worker::elapsed() const {
     return main_manager()->tm.elapsed([this]() { return threads.nodes_searched(); });
 }
 
-TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
+TimePoint Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
 
-Value Search::Worker::evaluate(const Position& pos) {
+Value Worker::evaluate(const Position& pos) {
 return Eval::evaluate(network[numaAccessToken], pos, accumulatorStack, refreshTable,
                           optimism[pos.side_to_move()]);
 }
 
 // When playing with strength handicap, choose the best move among a set of
 // RootMoves using a statistical rule dependent on 'level'. Idea by Heinz van Saanen.
-Move Search::Skill::pick_best(const RootMoves& rootMoves, size_t multiPV) {
+Move Skill::pick_best(const RootMoves& rootMoves, size_t multiPV) {
     static PRNG rng(now());  // PRNG sequence should be non-deterministic
 
     // RootMoves are already sorted by score in descending order
@@ -2075,7 +2075,7 @@ Move Search::Skill::pick_best(const RootMoves& rootMoves, size_t multiPV) {
 
 // Used to print debug info and, more importantly, to detect
 // when we are out of available time and thus stop the search.
-void Search::SearchManager::check_time(Search::Worker& worker) {
+void SearchManager::check_time(Worker& worker) {
     if (--callsCnt > 0)
         return;
 
@@ -2148,7 +2148,7 @@ void Search::SearchManager::check_time(Search::Worker& worker) {
 // Keeps the search based PV for as long as it is verified to maintain the game
 // outcome, truncates afterwards. Finally, extends to mate the PV, providing a
 // possible continuation (but not a proven mating line).
-void Search::syzygy_extend_pv(const OptionsMap&         options,
+void syzygy_extend_pv(const OptionsMap&         options,
                       const LimitsType& limits,
                       Position&                 pos,
                       RootMove&                 rootMove,
@@ -2280,7 +2280,7 @@ void Search::syzygy_extend_pv(const OptionsMap&         options,
           << sync_endl;
 }
 
-void Search::SearchManager::pv(Search::Worker&           worker,
+void SearchManager::pv(Worker&           worker,
                        const ThreadPool&         threads,
                        const TranspositionTable& tt,
                        Depth                     depth) {
@@ -2353,7 +2353,7 @@ void Search::SearchManager::pv(Search::Worker&           worker,
 // for instance, in case we stop the search during a fail high at root.
 // We try hard to have a ponder move to return to the GUI,
 // otherwise in case of 'ponder on' we have nothing to think about.
-bool Search::RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& pos) {
+bool RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& pos) {
 
     assert(pv.size() == 1 && pv[0] != Move::none());
 
