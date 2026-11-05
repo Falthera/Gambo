@@ -1138,7 +1138,6 @@ moves_loop:  // When in check, search starts here
     while ((move = mp.next_move()) != Move::none())
     {
         // assert(move.is_ok());
-        if (!move.is_ok()) ;
 
         if (move == excludedMove)
             continue;
