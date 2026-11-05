@@ -28,7 +28,8 @@ void AttackMapManager::init(const Position& pos) {
     for (auto& h : history) h.clear();
 
     // Full initial calculation
-    for (Square s : pos.pieces()) {
+    for (Bitboard b = pos.pieces(); b; ) {
+        Square s = pop_lsb(&b);
         Piece pc = pos.piece_on(s);
         Color c = color_of(pc);
         add_piece_attacks(pos, s, pc, true);
@@ -44,7 +45,8 @@ void AttackMapManager::init(const Position& pos) {
 void AttackMapManager::full_recalc(const Position& pos) {
     attack_map.clear();
 
-    for (Square s : pos.pieces()) {
+    for (Bitboard b = pos.pieces(); b; ) {
+        Square s = pop_lsb(&b);
         Piece pc = pos.piece_on(s);
         Color c = color_of(pc);
         add_piece_attacks(pos, s, pc, true);
@@ -58,8 +60,8 @@ void AttackMapManager::update_make_move(const Position& pos, Move m) {
     // Save current state for undo
     // (In practice, we'd save to history[ply], but for simplicity we track changes)
 
-    Square from = from_sq(m);
-    Square to = to_sq(m);
+    Square from = m.from_sq();
+    Square to = m.to_sq();
     Piece moved_piece = pos.piece_on(from);
     Color c = color_of(moved_piece);
     PieceType pt = type_of(moved_piece);
@@ -77,8 +79,8 @@ void AttackMapManager::update_make_move(const Position& pos, Move m) {
     // Add moved piece to to-square
     // Note: we need the piece after move (could be promoted)
     Piece new_piece = moved_piece;
-    if (promotion_type(m)) {
-        new_piece = make_piece(c, promotion_type(m));
+    if (m.promotion_type()) {
+        new_piece = make_piece(c, m.promotion_type());
     }
     add_piece_attacks(pos, to, new_piece, true);
 
@@ -177,12 +179,13 @@ void AttackMapManager::recalc_pins(const Position& pos) {
         Bitboard enemy_sliders = pos.pieces(them, ROOK, BISHOP, QUEEN);
         Bitboard occupied = pos.pieces();
 
-        for (Square s : enemy_sliders) {
+        for (Bitboard b = enemy_sliders; b; ) {
+            Square s = pop_lsb(&b);
             Piece pc = pos.piece_on(s);
             PieceType pt = type_of(pc);
 
             Bitboard attacks = attacks_bb(pt, s, occupied);
-            if (attacks & square_bb(king_sk)) {
+            if (attacks & square_bb(king_sq)) {
                 // Potential pin - check if there's exactly one piece between
                 Bitboard between = BetweenBB[s][king_sq] & occupied;
                 if (popcount(between) == 1) {

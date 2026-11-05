@@ -47,8 +47,8 @@ public:
 
     // Update with current search state, returns instability level
     InstabilityLevel update(const Stockfish::Position& pos, const Stockfish::Search::Stack* ss,
-                           int depth, Stockfish::Value currentScore, Stockfish::Value prevScore,
-                           const Stockfish::Search::PVMoves* pv, const Stockfish::Search::PVMoves* prevPV);
+                           int depth, Stockfish::Value currentScore, Stockfish::Value prevScoreIn,
+                           const Stockfish::Search::PVMoves* pv, const Stockfish::Search::PVMoves* prevPVIn);
 
     // Get current instability metrics
     int get_pv_changes() const { return pvChanges; }

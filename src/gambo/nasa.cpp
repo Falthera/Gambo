@@ -20,6 +20,7 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#include <malloc.h>
 #elif defined(__linux__)
 #include <numa.h>
 #include <numaif.h>
@@ -101,7 +102,7 @@ void NUMAManager::detect_windows() {
             info.nodes[i].cpu_count = 0;
             info.nodes[i].memory_size = 0;
 
-            GROUP_AFFINITY affinity = {0};
+            GROUP_AFFINITY affinity = {};
             affinity.Group = 0;
             affinity.Mask = 1ULL << i;  // simplified
 
@@ -109,6 +110,8 @@ void NUMAManager::detect_windows() {
             UCHAR buffer[1024];
             PNUMA_NODE_RELATIONSHIP node_rel = (PNUMA_NODE_RELATIONSHIP)buffer;
             DWORD length = 1024;
+            (void)node_rel;
+            (void)length;
             if (GetNumaNodeProcessorMaskEx(i, &affinity)) {
                 // Count bits
                 for (int cpu = 0; cpu < 64; ++cpu) {
@@ -201,12 +204,19 @@ void* NUMAManager::allocate_numa(size_t size, int node) {
     if (info.available && node >= 0 && node < info.node_count) {
         return VirtualAllocExNuma(GetCurrentProcess(), nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE, node);
     }
+    return _aligned_malloc(size, 64);
+#else
+    void* ptr = nullptr;
+    if (posix_memalign(&ptr, 64, size) == 0) {
+        return ptr;
+    }
+    return nullptr;
 #endif
-
-    return std::aligned_alloc(64, size);
 }
 
 void NUMAManager::deallocate_numa(void* ptr, size_t size, int node) {
+    (void)size;
+    (void)node;
 #if defined(__linux__) && defined(HAVE_NUMA)
     if (info.available && node >= 0 && node < info.node_count) {
         numa_free(ptr, size);
@@ -219,9 +229,11 @@ void NUMAManager::deallocate_numa(void* ptr, size_t size, int node) {
         VirtualFree(ptr, 0, MEM_RELEASE);
         return;
     }
-#endif
-
+    _aligned_free(ptr);
+    return;
+#else
     std::free(ptr);
+#endif
 }
 
 }  // namespace Gambo::NASA

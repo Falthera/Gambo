@@ -33,19 +33,19 @@ using namespace Stockfish;
 
 Gambo::SID::InstabilityLevel SearchInstabilityDetector::update(
     const Position& pos, const Search::Stack* ss, int depth,
-    Value currentScore, Value prevScore,
-    const Search::PVMoves* pv, const Search::PVMoves* prevPV) {
+    Value currentScore, Value prevScoreIn,
+    const Search::PVMoves* pv, const Search::PVMoves* prevPVIn) {
 
     // 1. Track PV changes
-    if (prevPV && pv && !prevPV->empty() && !pv->empty()) {
-        if ((*prevPV)[0] != (*pv)[0]) {
+    if (prevPVIn && pv && !prevPVIn->empty() && !pv->empty()) {
+        if ((*prevPVIn)[0] != (*pv)[0]) {
             pvChanges += 2;
         }
     }
 
     // 2. Track evaluation swings
-    if (prevScore != VALUE_NONE) {
-        int swing = std::abs(currentScore - prevScore);
+    if (prevScoreIn != VALUE_NONE) {
+        int swing = std::abs(currentScore - prevScoreIn);
         if (swing > 100) // > 1 pawn
             evalSwings += swing / 50;
     }
