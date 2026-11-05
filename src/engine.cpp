@@ -165,6 +165,28 @@ return std::nullopt;
     options.add("GAMBO.NUMAAlloc", Option(true));
     options.add("GAMBO.PGOProfile", Option(""));
 
+    // Tier 3: MetaSearch Options
+    options.add("GAMBO.PositionCriticality", Option(true));
+    options.add("GAMBO.AdaptiveResources", Option(true));
+    options.add("GAMBO.InstabilityDetection", Option(true));
+    options.add("GAMBO.TacticalVerification", Option(false));
+    options.add("GAMBO.MateVerification", Option(false));
+    options.add("GAMBO.ThreatContext", Option(false));
+    options.add("GAMBO.CounterfactualAnalysis", Option(false));
+    options.add("GAMBO.EventDrivenExtensions", Option(true));
+    options.add("GAMBO.RootCandidateAnalysis", Option(false));
+    options.add("GAMBO.HeterogeneousWorkers", Option(false));
+
+    // Tier 4: Experimental Options (disabled by default)
+    options.add("GAMBO.PGMCTS", Option(false));
+    options.add("GAMBO.PUCT", Option(false));
+    options.add("GAMBO.TAGS", Option(false));
+    options.add("GAMBO.DAGSearch", Option(false));
+    options.add("GAMBO.PSPA", Option(false));
+    options.add("GAMBO.BNNI", Option(false));
+    options.add("GAMBO.MHNE", Option(false));
+    options.add("GAMBO.HAMS", Option(false));
+
     options.add(  //
       "SyzygyPath", Option("", [](const Option& o) {
           Tablebases::init(o);
