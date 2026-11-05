@@ -2036,15 +2036,15 @@ int Worker::contextual_reduction(const Position& pos, const Stack* ss, bool impr
 // elapsed_time() returns the actual time elapsed since the start of the search.
 // This function is intended for use only when printing PV outputs, and not used
 // for making decisions within the search algorithm itself.
-TimePoint Worker::elapsed() const {
+TimePoint Worker::elapsed() {
     return main_manager()->tm.elapsed([this]() { return threads.nodes_searched(); });
 }
 
-TimePoint Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
+TimePoint Worker::elapsed_time() { return main_manager()->tm.elapsed_time(); }
 
 Value Worker::evaluate(const Position& pos) {
-return Eval::evaluate(network[numaAccessToken], pos, accumulatorStack, refreshTable,
-                          optimism[pos.side_to_move()]);
+    return Eval::evaluate(this->network[this->numaAccessToken], pos, this->accumulatorStack, this->refreshTable,
+                          this->optimism[pos.side_to_move()]);
 }
 
 // When playing with strength handicap, choose the best move among a set of
