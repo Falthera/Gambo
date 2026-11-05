@@ -49,7 +49,8 @@ public:
         COORD_KNIGHT_PAIR = 7,       // Two knights
         COORD_QUEEN_KNIGHT = 8,      // Queen + Knight coordination
         COORD_ROOK_ROOK = 9,         // Connected rooks
-        COORD_NB = 10
+        COORD_OUTPOST = 10,          // Knight outpost
+        COORD_NB = 11
     };
 
     // Feature identification
@@ -72,7 +73,7 @@ public:
 
     // Populate changed feature indices after a move
     static void append_changed_indices(Color perspective, Square ksq,
-                                       const DiffType& diff, IndexList& removed, IndexList& added);
+                                       const Position& pos, const DiffType& diff, IndexList& removed, IndexList& added);
 
     // Check if a full accumulator refresh is required
     static bool requires_refresh(const DiffType& diff, Color perspective);
