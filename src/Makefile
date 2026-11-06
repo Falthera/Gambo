@@ -77,7 +77,7 @@ SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
 	gambo/nnue/layers/affine_transform.cpp gambo/nnue/layers/affine_transform_sparse_input.cpp \
 	gambo/nnue/layers/clipped_relu.cpp gambo/nnue/layers/sqr_clipped_relu.cpp \
 	gambo/nnue/architecture.cpp gambo/nnue/network.cpp \
-	gambo/pce.cpp gambo/sid.cpp gambo/iamm.cpp gambo/ipfc.cpp gambo/nasa.cpp gambo/nfar.cpp gambo/asra.cpp gambo/tvs.cpp gambo/pnmv.cpp gambo/ptc.cpp gambo/cca.cpp gambo/edse.cpp gambo/rcra.cpp gambo/hsws.cpp \
+	gambo/pce.cpp gambo/sid.cpp gambo/iamm.cpp gambo/ipfc.cpp gambo/nasa.cpp \
 	engine.cpp score.cpp memory.cpp
 
 OTHER_SRCS = universal/entry_x86.cpp universal/nnue_embed.cpp
