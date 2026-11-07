@@ -68,8 +68,8 @@ static void extract_features(const Position& pos, TransformedFeatureType* out_fe
         Bitboard pawnsCopy2 = ourPawns & ~square_bb(p1);
         while (pawnsCopy2 && pairCount < 32) {
             Square p2 = pop_lsb(pawnsCopy2);
-            Features::PawnPairType type = Features::PawnPair::classify_pair(pos, us, p1, p2);
-            if (type != Features::PawnPairType::None) {
+            Features::PawnPairType type = Features::PawnPair::detect_pair_type(us, pos, p1, p2);
+            if (type != Features::PawnPairType::CONNECTED) {
                 IndexType featureIdx = Features::PawnPair::make_index(us, ourKingSq, p1, p2, type);
                 if (featureIdx < TransformedFeatureDimensions) {
                     out_features[featureIdx] = 127;  // Max activation
@@ -134,7 +134,7 @@ static void extract_features(const Position& pos, TransformedFeatureType* out_fe
     while (knightsCopy && idx < TransformedFeatureDimensions) {
         Square n = pop_lsb(knightsCopy);
         if (!(enemyPawnAttacks & square_bb(n)) && (ourPawns & pos.attacks_by<PAWN>(us) & square_bb(n))) {
-            IndexType featureIdx = Features::PieceRelative::make_index(Features::PieceRelative::CoordType::OUTPOST, n, n, us);
+            IndexType featureIdx = Features::PieceRelative::make_index(Features::PieceRelative::CoordType::COORD_OUTPOST, n, n, us);
             if (featureIdx < TransformedFeatureDimensions) {
                 out_features[featureIdx] = 127;
             }
@@ -149,7 +149,7 @@ static void extract_features(const Position& pos, TransformedFeatureType* out_fe
         Square r = pop_lsb(rooksCopy);
         File f = file_of(r);
         if (!(allPawns & file_bb(f))) {
-            IndexType featureIdx = Features::PieceRelative::make_index(Features::PieceRelative::CoordType::ROOK_OPEN_FILE, r, r, us);
+            IndexType featureIdx = Features::PieceRelative::make_index(Features::PieceRelative::CoordType::COORD_ROOK_OPEN_FILE, r, r, us);
             if (featureIdx < TransformedFeatureDimensions) {
                 out_features[featureIdx] = 127;
             }
