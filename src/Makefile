@@ -89,7 +89,7 @@ NNUE_EMBED_OBJ       := $(TEMP_DIR)/nnue_embed.o
 NET_SENTINEL         := $(TEMP_DIR)/.net-done
 
 $(NNUE_EMBED_OBJ): $(UNIVERSAL_SRC_DIR)/nnue_embed.cpp $(NET_SENTINEL) | $(TEMP_DIR)
-	$(CXX) -O2 -Wno-c++26-extensions --embed-dir=$(CURDIR) -c $< -o $@
+	$(CXX) -O2 -std=c++26 -Wno-c++26-extensions --embed-dir=$(CURDIR) -c $< -o $@
 
 $(TEMP_DIR):
 	@mkdir -p $@
@@ -1216,6 +1216,9 @@ $(EXE): $(OBJS) $(NNUE_EMBED_OBJ)
 
 %.o: %.cpp
 	$(strip $(CXX) $(CPPFLAGS) $(CXXFLAGS)) -c -o $@ $<
+
+nnue/network.o: nnue/network.cpp
+	$(strip $(CXX) $(CPPFLAGS) $(CXXFLAGS) -std=c++26) -c -o $@ $<
 
 misc.o: misc.cpp $(BUILD_SHA_FILE) $(BUILD_DATE_FILE)
 	$(strip $(CXX) $(CPPFLAGS) $(CXXFLAGS) $(if $(GIT_SHA),-DGIT_SHA=$(GIT_SHA)) $(if $(GIT_DATE),-DGIT_DATE=$(GIT_DATE))) -c -o $@ $<
