@@ -45,9 +45,10 @@
 // Note that this does not work in Microsoft Visual Studio.
 #if !defined(UNIVERSAL_BINARY) && !defined(_MSC_VER) && !defined(NNUE_EMBEDDING_OFF)
 INCBIN(EmbeddedNNUE, EvalFileDefaultName);
-#elif defined(UNIVERSAL_BINARY)
-    // When building for the universal binary, use C++26 #embed with weak symbols so that a
-    // separate, non-LTO nnue_embed.o (with strong symbols) can override them during the LTO link,
+#elif defined(UNIVERSAL_BINARY) || defined(NNUE_EMBEDDING_OFF)
+    // When building for the universal binary, or when INCBIN is disabled (e.g. mingw),
+    // use C++26 #embed with weak symbols so that a separate, non-LTO nnue_embed.o
+    // (with strong symbols) can override them during the LTO link.
     // (INCBIN can't deduplicate.)
     #define WEAK_SYM __attribute__((weak))
 extern const unsigned char gEmbeddedNNUEData[] WEAK_SYM = {
