@@ -55,7 +55,34 @@
 namespace Stockfish {
 
 static constexpr std::array<int, 16> lmrDivisor = {3307, 2930, 2874, 2818, 3215, 3225, 3224, 2782,
-                                                   2858, 2919, 3088, 3275, 3180, 2868, 3006, 3599};
+                                                    2858, 2919, 3088, 3275, 3180, 2868, 3006, 3599};
+
+// EGC — Extension Growth Control constants
+constexpr int MAX_EXTENSIONS_PER_PATH = 6;     // Hard limit on total extensions per search path
+constexpr int MAX_EXTENSIONS_PER_PLY  = 2;     // Max extensions allowed per ply
+constexpr int EXTENSION_PENALTY_BASE  = 128;   // Move ordering penalty for extension-triggering moves
+
+// Helper to check if we can safely extend
+inline bool can_extend(const Stack* ss, int ply, int extension) {
+    if (ss->extensionAccumulator + extension > MAX_EXTENSIONS_PER_PATH)
+        return false;
+    if (ply > 0 && ss->extensionAccumulator > ply * MAX_EXTENSIONS_PER_PLY)
+        return false;
+    return true;
+}
+
+// Update extension accumulator
+inline void add_extension(Stack* ss, int extension) {
+    ss->extensionAccumulator += extension;
+}
+
+// Penalty for moves that trigger extensions (for move ordering)
+inline int extension_penalty(int extension) {
+    return EXTENSION_PENALTY_BASE * extension;
+}
+
+static constexpr std::array<int, 16> lmrDivisor = {3307, 2930, 2874, 2818, 3215, 3225, 3224, 2782,
+                                                    2858, 2919, 3088, 3275, 3180, 2868, 3006, 3599};
 
 namespace TB = Tablebases;
 
@@ -1268,8 +1295,7 @@ moves_loop:  // When in check, search starts here
             && ttData.depth >= depth - 3 && !is_shuffling(move, ss, pos))
         {
             // EGC: Extension Growth Control - limit total extensions along path
-            constexpr int MAX_EXTENSIONS_PER_PATH = 6;  // Hard limit
-            if (ss->extensionAccumulator >= MAX_EXTENSIONS_PER_PATH)
+            if (!can_extend(ss, ss->ply, 1))
             {
                 // Too many extensions already, skip singular extension
             }
@@ -1300,8 +1326,11 @@ moves_loop:  // When in check, search starts here
                       1 + (value < singularBeta - doubleMargin) + (value < singularBeta - tripleMargin);
 
                     // EGC: Track extension accumulation
-                    ss->extensionAccumulator += extension;
+                    add_extension(ss, extension);
                     ss->singularExtensionCount += 1;
+
+                    // EGC: Apply move ordering penalty for extension-triggering moves
+                    update_quiet_histories(pos, ss, *this, move, -extension_penalty(extension));
 
                     depth++;
                 }
