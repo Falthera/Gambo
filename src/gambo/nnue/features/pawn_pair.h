@@ -82,14 +82,7 @@ public:
     // Check if a full accumulator refresh is required
     static bool requires_refresh(const DiffType& diff, Color perspective);
 
-private:
-    // King bucket mapping (same as HalfKAv2_hm)
-    static const IndexType KingBuckets[SQUARE_NB];
-
-    // Orient square according to perspective
-    static Square orient(Color perspective, Square s);
-
-    // Detect pawn-pair relationship type between two pawns
+// Detect pawn-pair relationship type between two pawns
     static PawnPairType detect_pair_type(Color perspective, const Position& pos,
                                          Square pawn1, Square pawn2);
 
@@ -122,6 +115,13 @@ private:
 
     // Check if pawn is backward (behind adjacent friendly pawns, cannot advance)
     static bool is_backward_pawn(Color perspective, const Position& pos, Square sq);
+
+private:
+    // King bucket mapping (same as HalfKAv2_hm)
+    static const IndexType KingBuckets[SQUARE_NB];
+
+    // Orient square according to perspective
+    static Square orient(Color perspective, Square s);
 };
 
 }  // namespace Gambo::NNUE::Features
