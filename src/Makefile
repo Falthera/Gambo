@@ -76,7 +76,7 @@ SRCS = benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
 	gambo/nnue/features/threat_detection.cpp gambo/nnue/features/piece_relative.cpp \
 	gambo/nnue/layers/affine_transform.cpp gambo/nnue/layers/affine_transform_sparse_input.cpp \
 	gambo/nnue/layers/clipped_relu.cpp gambo/nnue/layers/sqr_clipped_relu.cpp \
-	gambo/nnue/architecture.cpp \
+	gambo/nnue/architecture.cpp gambo/nnue/network.cpp \
 	gambo/pce.cpp gambo/sid.cpp gambo/iamm.cpp gambo/ipfc.cpp gambo/nasa.cpp \
 	engine.cpp score.cpp memory.cpp
 
@@ -534,7 +534,7 @@ ifeq ($(COMP),mingw)
 			CXX=i686-w64-mingw32-c++-posix
 		endif
 	endif
-	CXXFLAGS += -pedantic -Wextra -Wshadow -Wmissing-declarations -fconstexpr-ops-limit=500000000
+	CXXFLAGS += -pedantic -Wextra -Wshadow -Wmissing-declarations -fconstexpr-ops-limit=500000000 -DNNUE_EMBEDDING_OFF
 endif
 
 ifeq ($(COMP),icx)
