@@ -24,6 +24,15 @@
 
 namespace Stockfish {
 
+// Gambo NNUE network instance (static initialization)
+static Gambo::NNUE::Network* g_gamboNetwork = nullptr;
+
+static void init_gambo_network() {
+    if (g_gamboNetwork) return;
+    g_gamboNetwork = new Gambo::NNUE::Network();
+    // Network loads embedded weights automatically via architecture
+}
+
 // Debug helper to clamp classical evaluation terms to reasonable bounds
 inline int clamp_classical_term(int v, const char* termName) {
     constexpr int MAX_CLASSICAL_TERM = 5000; // Sanity bound: no single term should exceed this
@@ -57,20 +66,21 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
         psqt = sf_psqt;
         positional = sf_positional;
     } else {
-        // GAMBO NNUE or Blend
-        // For GAMBO backend, we need a GAMBO network instance
-        // This is a simplified integration - in practice we'd pass the GAMBO network separately
-        // For now, fall back to Stockfish NNUE if GAMBO network not available
-        auto [sf_psqt, sf_positional] = network.evaluate(pos, accumulators, caches);
-        psqt = sf_psqt;
-        positional = sf_positional;
+        // Initialize Gambo network if needed
+        init_gambo_network();
         
-        if (backend == GamboNNUEBackend::Gambo) {
-            // TODO: Integrate GAMBO::NNUE::Network when fully wired
-            // For now, use Stockfish NNUE as placeholder
-        } else if (backend == GamboNNUEBackend::Blend) {
-            // TODO: Blend Stockfish and GAMBO NNUE outputs
-            // For now, use Stockfish NNUE as placeholder
+        if (backend == GamboNNUEBackend::Gambo || backend == GamboNNUEBackend::Blend) {
+            // Use GAMBO NNUE network (embedded weights, no external file needed)
+            Gambo::NNUE::NetworkOutput gmboOut = g_gamboNetwork->evaluate(pos, accumulators, caches);
+            psqt = gmboOut.psqt;
+            positional = gmboOut.positional;
+        }
+        
+        if (backend == GamboNNUEBackend::Blend) {
+            // Blend: average Gambo and Stockfish outputs
+            auto [sf_psqt, sf_positional] = network.evaluate(pos, accumulators, caches);
+            psqt = (psqt + sf_psqt) / 2;
+            positional = (positional + sf_positional) / 2;
         }
     }
 
