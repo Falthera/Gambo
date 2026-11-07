@@ -93,14 +93,14 @@
 
 | Status | Count | Percentage |
 |--------|-------|------------|
-| **Implemented** | 10 | 25% |
-| **Partially Implemented** | 12 | 30% |
+| **Implemented** | 11 | 27.5% |
+| **Partially Implemented** | 11 | 27.5% |
 | **Missing** | 18 | 45% |
 | **Experimental (Tier 4)** | 8 | 20% |
 
 ---
 
-## Progress Summary (as of commit e692651)
+## Progress Summary (as of commit c32a51c)
 
 ### Completed ✅
 1. **TMIHH** (1) - Threat-Map Indexed History Heuristic: Type definitions, threat categories (0-7), history updates for captures/checks/quiets
@@ -108,13 +108,14 @@
 3. **MPCH** (3) - Multi-Ply Continuation History: Fixed to use `multiPlyContinuationHistory` instead of `colourContinuationHistory`
 4. **MTCH** (4) - Move-Type Conditioned History: Added move-type conditioned history for captures in movepick.cpp
 5. **HGQMP** (7) - History-Guided Quiet Move Pruning: Implemented in `prune_quiet_move` with threat category integration
-6. **INFU** (13) - Incremental NNUE Feature Update: Fixed function signatures for all 4 custom feature sets (PawnPair, KingRelative, ThreatDetection, PieceRelative) to accept Position reference
+6. **INFU** (13) - Incremental NNUE Feature Update: Gambo feature sets (PawnPair, KingRelative, ThreatDetection, PieceRelative) fully integrated into accumulator system with template specializations for incremental weight updates
 7. **EGC** (9) - Extension Growth Control: Added constants, `can_extend`/`add_extension` helpers, singular extension tracking, move ordering penalty
 8. **CHQO** (5) - Capture-History Quiescence Ordering: SEEClass enum and `see_class` function implemented, integrated with qsearch capture history
 9. **SEE-GCP** (6) - SEE-Guided Capture Partitioning: SEEClass enum and `see_class` function implemented
 10. **SESR** (10) - Singular Extension Search Refinement: Improved candidate verification with TT information, margin adjustments
+11. **PCE** (23) - Position Criticality Estimation: `gambo/pce.cpp`/`pce.h` with `PositionCriticalityEngine` integrated in search
 
-### Partially Implemented 🔄 (12)
+### Partially Implemented 🔄 (11)
 - **NFAR** (14), **SONI** (15), **SMP** (16), **CATT** (17), **CTTEL** (18) - Tier 2 performance
 - **TVS** (26), **PNMV** (27), **PTC** (28), **CCA** (29), **EDSE** (30), **RCRA** (31), **HSWS** (32) - Tier 3 MetaSearch
 - **URD** (8) - Position version implemented, Search version needs integration
@@ -146,4 +147,4 @@
 
 ---
 
-*This audit reflects the actual code state as of commit e692651. Statuses are based on code inspection, not wishful thinking.*
+*This audit reflects the actual code state as of commit c32a51c. Statuses are based on code inspection, not wishful thinking.*
