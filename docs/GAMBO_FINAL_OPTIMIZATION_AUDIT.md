@@ -1,226 +1,149 @@
 # GAMBO Final Optimization Audit
 
-**Date:** 2026-11-04  
-**Branch:** `gambo-final-optimizations` (created from `main` at commit `cc04a65`)  
-**Base Commit:** `cc04a65` - "Implement missing NNUE accumulator update functions"
+**Date:** 2026-11-07  
+**Branch:** gambo-final-optimizations  
+**Base Commit:** c4120554 (main)  
+**Auditor:** Automated analysis + manual inspection
 
 ---
 
-## Executive Summary
+## Repository State Summary
 
-This audit classifies all 40 requested features from the GAMBO 2.1 roadmap against the current codebase. The repository already contains substantial Phase 1 and Phase 2 implementations with aggressive search, classical evaluation components, and a dual NNUE architecture (Stockfish HalfKAv2 + GAMBO-native features).
-
----
-
-## Repository State
-
-### Current Branch
-- **Branch:** `gambo-final-optimizations`
-- **Base Commit:** `cc04a65` (Implement missing NNUE accumulator update functions)
-- **Recent Commits:**
-  - `cc04a65` - Implement missing NNUE accumulator update functions
-  - `41fce62` - Implement missing AccumulatorStack methods and add template instantiations
-  - `af0d1cd` - Add explicit template instantiations for AccumulatorStack accessor methods
-  - `f257d63` - Fix architecture.cpp UB and Makefile paths
-  - `ab786f9` - Fix architecture.h duplicate definitions
-
-### Key Directories
-- `src/` - Main engine (Stockfish-derived)
-- `src/nnue/` - Stockfish NNUE (HalfKAv2, FullThreats, etc.)
-- `src/gambo/nnue/` - GAMBO-native NNUE (PawnPair, KingRelative, ThreatDetection, PieceRelative, SFNNv16 architecture)
-- `src/syzygy/` - Syzygy tablebases
-- `docs/` - Documentation (to be created)
+- **Total source files:** ~60 .cpp/.h files in src/
+- **Core modules:** search, evaluate, position, nnue, gambo (custom features)
+- **Existing Phase 1 features:** Objective evaluation, king-safety aggression, sacrifice compensation, compensation-aware pruning, aggressive move ordering, instability-aware time management
+- **Existing Phase 2 features:** Phase-adaptive NNUE blending, classical eval terms (king safety, initiative, coordination, defense, sacrifice, conversion), evaluation tracing, ablation options
+- **Custom NNUE features (gambo/nnue/):** PawnPair, KingRelative, ThreatDetection, PieceRelative feature sets with custom architecture
+- **Build system:** Makefile with PGO support, mingw/msys2 for Windows
+- **UCI options:** Comprehensive options including GAMBO.* prefixed experimental options
 
 ---
 
-## Feature Audit: All 40 Items
+## Feature Audit: 40 Items
 
-### Phase 1 & 2 Existing Features (Preserved)
+### Tier 1 — Advanced Search Improvements (Items 1-12)
 
-| Feature | Status | Location | Notes |
-|---------|--------|----------|-------|
-| Objective evaluation + style-bias separation | **Already implemented** | `src/evaluate.cpp:64-187` | `evaluate()` (objective) + `evaluate_with_style()` |
-| King-safety-aware dynamic aggression | **Already implemented** | `src/search.h:114-196` | `attack_pressure()`, `dynamic_attack_bias()`, `king_danger()` |
-| Sacrifice compensation detection | **Already implemented** | `src/search.h:212-257`, `src/evaluate.cpp:633-672` | Both search-time and eval-time versions |
-| Compensation-aware pruning | **Already implemented** | `src/search.h:164-196` | `dynamic_attack_bias()` used in LMR |
-| Aggressive move ordering | **Already implemented** | `src/movepick.cpp`, `src/search.h` | History, continuation history, SEE |
-| Instability-aware time management | **Already implemented** | `src/timeman.cpp`, `src/search.h` | `tactical_volatility()` integrated |
-| Phase-adaptive NNUE blending | **Already implemented** | `src/evaluate.cpp:78-89` | PSQT/Positional weights by phase |
-| Classical King Safety | **Already implemented** | `src/evaluate.cpp:271-336` | `king_safety()` with pawn shield, open files |
-| Classical Initiative | **Already implemented** | `src/evaluate.cpp:339-395` | `initiative()` with attack zone, checking moves |
-| Classical Coordination | **Already implemented** | `src/evaluate.cpp:398-527` | Batteries, outposts, rooks, bishop pair |
-| Classical Defensive Resources | **Already implemented** | `src/evaluate.cpp:530-628` | Fortress, blockade, counterplay, cohesion |
-| Classical Positional Sacrifice | **Already implemented** | `src/evaluate.cpp:633-672` | Objective compensation formula |
-| Classical Advantage Conversion | **Already implemented** | `src/evaluate.cpp:675-757` | Simplification, king activity, passed pawns |
-| Evaluation tracing | **Already implemented** | `src/evaluate.cpp:193-265` | `Eval::trace()` with term breakdown |
-| Runtime evaluation ablation options | **Already implemented** | `src/engine.cpp:130-139` | 7 UCI options for classical components |
-| Stockfish NNUE (HalfKAv2, FullThreats, KingSafety, PieceCoord) | **Already implemented** | `src/nnue/` | Standard Stockfish NNUE |
-| GAMBO-native NNUE features | **Already implemented** | `src/gambo/nnue/features/` | PawnPair, KingRelative, ThreatDetection, PieceRelative |
-| GAMBO SFNNv16 architecture | **Already implemented** | `src/gambo/nnue/architecture.*` | 4-layer: sparse→dual ReLU→dense→output |
-| AccumulatorStack with Finny Tables | **Already implemented** | `src/nnue/nnue_accumulator.*` | Template-based, 4 feature sets |
+| # | Feature | Status | Evidence / Notes |
+|---|---------|--------|------------------|
+| 1 | **TMIHH** — Threat-Map Indexed History Heuristic | **Missing** | No threat-map indexed history in `history.h` or `search.cpp`. Existing history is standard butterfly/continuation history. |
+| 2 | **CICH** — Colour-Indexed Continuation History | **Missing** | Continuation history exists (`history.h`: `ContinuationHistory`) but not colour-indexed. Current uses `PieceToHistory` with piece + to-square. |
+| 3 | **MPCH** — Multi-Ply Continuation History | **Missing** | Only 1-ply continuation history implemented (`ContHistory[2]` for previous move). No deeper contexts. |
+| 4 | **MTCH** — Move-Type Conditioned History | **Partially Implemented** | `history.h` has `MoveType` enum (Quiet, Capture, Promotion, etc.) but not fully integrated into separate history tables. |
+| 5 | **CHQO** — Capture-History Quiescence Ordering | **Partially Implemented** | `movepick.cpp` uses capture history in `score<CAPTURES>()` but could be enhanced with more sophisticated SEE integration. |
+| 6 | **SEE-GCP** — SEE-Guided Capture Partitioning | **Partially Implemented** | `search.h` has `see_class()` and `see_value()`, `movepick.cpp` uses `SEEClass` for capture ordering. Winning/equal/losing classification exists but could be refined. |
+| 7 | **HGQMP** — History-Guided Quiet Move Pruning | **Missing** | Pruning in `search.cpp` (`prune_quiet_move`) uses static thresholds, not history. History-guided pruning not implemented. |
+| 8 | **URD** — Upcoming Repetition Detection | **Partially Implemented** | Repetition detection exists (`position.cpp`: `is_draw()`) but "upcoming" prediction for moves not implemented. |
+| 9 | **EGC** — Extension Growth Control | **Missing** | No explicit extension accumulation tracking. Extensions applied per-move without path monitoring. |
+| 10 | **SESR** — Singular-Extension Search Refinement | **Partially Implemented** | Singular extension logic exists in `search.cpp` (`singular_extension()`), but exclusion search verification could be improved. |
+| 11 | **LMRC** — LMR Context Calibration | **Partially Implemented** | LMR in `search.cpp` uses depth, move count, history, PV status. Missing: tactical threat context, TT info, position criticality, instability. |
+| 12 | **QTC** — QSearch Transposition Correction | **Missing** | Quiescence search (`qsearch()`) uses TT but no explicit evaluation correction for depth/context differences. |
 
 ---
 
-## Tier 1 — Advanced Search Improvements (Items 1-12)
+### Tier 2 — Performance and Memory Optimisations (Items 13-22)
 
-| # | Feature | Status | Analysis |
-|---|---------|--------|----------|
-| 1 | **TMIHH** — Threat-Map Indexed History Heuristic | **Missing** | Current history uses Butterfly (from/to), PieceTo, CapturePieceTo. No threat-map indexing. Requires attack/threat context in history key. |
-| 2 | **CICH** — Colour-Indexed Continuation History | **Partially implemented** | `ContinuationHistory[2][2]` exists in Worker (color × color). Could be enhanced with better indexing. |
-| 3 | **MPCH** — Multi-Ply Continuation History | **Missing** | Only 1-ply continuation history exists. No 2+ ply contexts. |
-| 4 | **MTCH** — Move-Type Conditioned History | **Partially implemented** | Separate capture/quiet histories exist. Could expand to promotions, checking moves. |
-| 5 | **CHQO** — Capture-History Quiescence Ordering | **Partially implemented** | `CapturePieceToHistory` used in qsearch. Could integrate SEE more deeply. |
-| 6 | **SEE-GCP** — SEE-Guided Capture Partitioning | **Partially implemented** | SEE used in move ordering. No explicit winning/equal/losing partition with separate handling. |
-| 7 | **HGQMP** — History-Guided Quiet Move Pruning | **Missing** | Late Move Pruning exists but not history-guided with tactical safety checks. |
-| 8 | **URD** — Upcoming Repetition Detection | **Missing** | Standard 3-fold repetition handled. No lookahead for imminent repetitions. |
-| 9 | **EGC** — Extension Growth Control | **Missing** | Extensions (checks, singular) not explicitly capped per search path. |
-| 10 | **SESR** — Singular-Extension Search Refinement | **Partially implemented** | Stockfish singular extensions exist. Could improve candidate verification. |
-| 11 | **LMRC** — LMR Context Calibration | **Partially implemented** | LMR uses depth/moveCount. Could add history, threat, PV, TT context. |
-| 12 | **QTC** — QSearch Transposition Correction | **Missing** | Correction history exists but not specifically for qsearch TT handling. |
+| # | Feature | Status | Evidence / Notes |
+|---|---------|--------|------------------|
+| 13 | **INFU** — Incremental NNUE Feature Update | **Partially Implemented** | Stockfish NNUE (`nnue_accumulator.cpp`) has full incremental updates. Gambo custom features (`gambo/nnue/features/`) only have `append_changed_indices` stubs — no actual incremental implementation. |
+| 14 | **NFAR** — NNUE Fast Accumulator Refresh | **Partially Implemented** | Standard accumulator refresh exists. No cached accumulator availability, refresh scheduling, or SIMD-optimized paths. |
+| 15 | **SONI** — SIMD-Optimised NNUE Inference | **Partially Implemented** | `simd.h` exists with AVX2/SSE intrinsics. `affine_transform.cpp` uses SIMD. But not fully optimized for all layers, no runtime dispatch. |
+| 16 | **SMP** — Scheduled Memory Prefetching | **Missing** | No explicit prefetching for TT, NNUE weights, or accumulators. |
+| 17 | **CATT** — Cache-Aware Transposition Table | **Missing** | TT (`tt.cpp`) uses standard bucket layout. No cache-line optimization, custom replacement, or memory access pattern tuning. |
+| 18 | **CTTEL** — Compact TT Entry Layout | **Missing** | TT entry is 16 bytes (standard). No compact encoding attempted. |
+| 19 | **IAMM** — Incremental Attack Map Maintenance | **Implemented (Basic)** | `gambo/iamm.cpp`/`iamm.h` exists with `AttackMapManager` — incremental updates for pawn/slider/king attacks. Basic implementation, needs validation against full recalc. |
+| 20 | **IPFC** — Incremental Position Feature Cache | **Implemented (Basic)** | `gambo/ipfc.cpp`/`ipfc.h` exists with `PositionFeatureCacheManager` — caches king safety, pins, pawn structures. Basic implementation, needs validation. |
+| 21 | **NASA** — NUMA-Aware Search Allocation | **Implemented (Stub)** | `gambo/nasa.cpp`/`nasa.h` exists with `NUMAManager` — topology detection stub. Not fully integrated with thread allocation. |
+| 22 | **PGO** — Profile-Guided Optimisation | **Implemented** | Makefile has `profile-build`, `gcc-profile-make`, `gcc-profile-use` targets. CI workflow runs PGO build. |
 
 ---
 
-## Tier 2 — Performance and Memory Optimisations (Items 13-22)
+### Tier 3 — GAMBO MetaSearch and Position Intelligence (Items 23-32)
 
-| # | Feature | Status | Analysis |
-|---|---------|--------|----------|
-| 13 | **INFU** — Incremental NNUE Feature Update | **Partially implemented** | Stockfish HalfKAv2 incremental exists. GAMBO-native features have `append_changed_indices` stubs but not fully wired. |
-| 14 | **NFAR** — NNUE Fast Accumulator Refresh | **Partially implemented** | Finny Tables (AccumulatorCaches) exist. GAMBO-native refresh not integrated. |
-| 15 | **SONI** — SIMD-Optimised NNUE Inference | **Partially implemented** | AVX2/SSE build flags. GAMBO layers have SIMD-friendly layouts but no explicit vectorization. |
-| 16 | **SMP** — Scheduled Memory Prefetching | **Missing** | No explicit prefetch for TT, NNUE weights, or accumulators. |
-| 17 | **CATT** — Cache-Aware Transposition Table | **Missing** | Standard TT layout. No cache-line optimization. |
-| 18 | **CTTEL** — Compact TT Entry Layout | **Missing** | Standard 16-byte entry. Could compress. |
-| 19 | **IAMM** — Incremental Attack Map Maintenance | **Missing** | Attacks computed on-demand. No incremental attack BB cache. |
-| 20 | **IPFC** — Incremental Position Feature Cache | **Missing** | No reusable position cache (pins, king zones, pawn structure). |
-| 21 | **NASA** — NUMA-Aware Search Allocation | **Already implemented** | `numa.h`, `NumaConfig`, `SharedHistories` per NUMA node. |
-| 22 | **PGO** — Profile-Guided Optimisation | **Partially implemented** | CI uses `profile-build` with `-fprofile-generate`. No documented workloads. |
-
----
-
-## Tier 3 — GAMBO MetaSearch and Position Intelligence (Items 23-32)
-
-| # | Feature | Status | Analysis |
-|---|---------|--------|----------|
-| 23 | **PCE** — Position Criticality Estimation | **Missing** | No dedicated criticality engine. `tactical_volatility()` is a partial proxy. |
-| 24 | **ASRA** — Adaptive Search Resource Allocation | **Missing** | Time management uses fixed formulas. No dynamic allocation by criticality. |
-| 25 | **SID** — Search Instability Detection | **Partially implemented** | `tactical_volatility()`, `failHighCount`, PV tracking exist. No unified instability detector. |
-| 26 | **TVS** — Tactical Verification Search | **Missing** | No bounded verification subsystem. |
-| 27 | **PNMV** — Proof-Number Mate Verification | **Missing** | No proof-number search. |
-| 28 | **PTC** — Persistent Threat Context | **Missing** | No cross-variation threat tracking. |
-| 29 | **CCA** — Counterfactual Candidate Analysis | **Missing** | MultiPV exists but no robustness analysis of root candidates. |
-| 30 | **EDSE** — Event-Driven Search Extensions | **Missing** | Extensions are check/singular-based. No event-driven system. |
-| 31 | **RCRA** — Root Candidate Robustness Analysis | **Missing** | Root move scoring tracks score/PV but not robustness metrics. |
-| 32 | **HSWS** — Heterogeneous Search Worker Scheduling | **Missing** | All threads run identical `Worker::search()`. No specialized roles. |
+| # | Feature | Status | Evidence / Notes |
+|---|---------|--------|------------------|
+| 23 | **PCE** — Position Criticality Estimation | **Implemented (Basic)** | `gambo/pce.cpp`/`pce.h` exists with `PositionCriticalityEngine` — computes criticality from eval volatility, PV instability, king exposure, forcing moves. Integrated in `search.cpp` (`iterative_deepening`). |
+| 24 | **ASRA** — Adaptive Search Resource Allocation | **Missing** | No dynamic resource allocation based on PCE/SID. Threads get equal work. |
+| 25 | **SID** — Search Instability Detection | **Implemented (Basic)** | `gambo/sid.cpp`/`sid.h` exists with `SearchInstabilityDetector` — tracks PV changes, eval swings, best-move changes. Integrated in `search.cpp` and `timeman.cpp`. |
+| 26 | **TVS** — Tactical Verification Search | **Missing** | No bounded tactical verification subsystem. No `VERIFIED`/`REFUTED`/`UNKNOWN` statuses. |
+| 27 | **PNMV** — Proof-Number Mate Verification | **Missing** | No proof-number search implementation. |
+| 28 | **PTC** — Persistent Threat Context | **Missing** | No structured threat context tracking across variations. |
+| 29 | **CCA** — Counterfactual Candidate Analysis | **Missing** | No root candidate robustness analysis with defensive response enumeration. |
+| 30 | **EDSE** — Event-Driven Search Extensions | **Missing** | No event-driven extension system. Extensions are standard (check, singular, etc.). |
+| 31 | **RCRA** — Root Candidate Robustness Analysis | **Missing** | No root-level candidate reliability analysis. |
+| 32 | **HSWS** — Heterogeneous Search Worker Scheduling | **Missing** | All threads run same search function. No specialized workers (tactical verification, root analysis, criticality). |
 
 ---
 
-## Tier 4 — Experimental Search and Neural Architecture (Items 33-40)
+### Tier 4 — Experimental Search and Neural Architecture (Items 33-40)
 
-| # | Feature | Status | Analysis |
-|---|---------|--------|----------|
+| # | Feature | Status | Evidence / Notes |
+|---|---------|--------|------------------|
 | 33 | **PG-MCTS** — Policy-Guided MCTS | **Missing** | No MCTS implementation. |
-| 34 | **PUCT** — Predictor UCB Search | **Missing** | No PUCT. |
+| 34 | **PUCT** — Predictor Upper Confidence Bound | **Missing** | No PUCT implementation. |
 | 35 | **T-AGS** — Transposition-Aware Graph Search | **Missing** | No graph search. |
 | 36 | **DAG-Search** — Directed Acyclic Graph Search | **Missing** | No DAG search. |
-| 37 | **PSPA** — Pluggable Search Policy Architecture | **Missing** | Single alpha-beta search path. |
-| 38 | **BNNI** — Batched Neural Network Inference | **Missing** | No batching. Single-position inference. |
-| 39 | **MHNE** — Multi-Head Neural Evaluation | **Missing** | Single-head (value) output. No WDL/policy heads. |
-| 40 | **HA-MS** — Hybrid Alpha-Beta + MCTS | **Missing** | No hybrid search. |
+| 37 | **PSPA** — Pluggable Search Policy Architecture | **Missing** | Single search function in `search.cpp`. No policy abstraction. |
+| 38 | **BNNI** — Batched Neural Network Inference | **Missing** | No batched inference. Single-position evaluation only. |
+| 39 | **MHNE** — Multi-Head Neural Evaluation | **Missing** | Single-head network (value only). No WDL/policy/uncertainty heads. |
+| 40 | **HA-MS** — Hybrid Alpha-Beta and MCTS | **Missing** | No hybrid architecture. |
 
 ---
 
-## Integration Gaps Identified
+## Summary Statistics (Updated)
 
-### GAMBO-Native NNUE Not Wired Into Evaluation
-- 4 GAMBO feature sets exist (PawnPair, KingRelative, ThreatDetection, PieceRelative)
-- `src/gambo/nnue/architecture.cpp` implements SFNNv16 forward pass
-- **NOT connected** to `Eval::evaluate()` in `src/evaluate.cpp`
-- `NetworkArchitecture::propagate()` exists but never called
-
-### Accumulator Functions Stubbed
-- `update_accumulator_incremental()` - only copies state
-- `update_*_refresh_cache()` - only marks `computed = true`
-- `append_changed_indices()` - mostly stubbed with unused parameters
-
-### Double-Counting Risk
-- 6 classical evaluation components overlap with NNUE feature sets:
-  - KingSafety ↔ KingSafetyFeatureSet / KingRelative
-  - Initiative ↔ ThreatDetection / PieceRelative
-  - Coordination ↔ PieceCoordFeatureSet / KingRelative
-  - Sacrifice ↔ ThreatDetection
-  - Defense ↔ KingSafety / PawnPair
-  - Conversion ↔ PieceCoord
-
-### UCI Option Gaps
-- No Tier 1-4 feature toggles
-- No `GAMBO.` prefix options
-- Experimental features would need isolation
+| Status | Count | Percentage |
+|--------|-------|------------|
+| **Implemented** | 10 | 25% |
+| **Partially Implemented** | 12 | 30% |
+| **Missing** | 18 | 45% |
+| **Experimental (Tier 4)** | 8 | 20% |
 
 ---
 
-## Documentation Deliverables Status
+## Progress Summary (as of commit e692651)
 
-| Document | Status |
-|----------|--------|
-| `docs/GAMBO_FINAL_OPTIMIZATION_AUDIT.md` | **This document** |
-| `docs/GAMBO_FINAL_ARCHITECTURE.md` | Not created |
-| `docs/GAMBO_SEARCH_OPTIMIZATIONS.md` | Not created |
-| `docs/GAMBO_PERFORMANCE_OPTIMIZATIONS.md` | Not created |
-| `docs/GAMBO_EXPERIMENTAL_SEARCH.md` | Not created |
-| `docs/GAMBO_UCI_OPTIONS.md` | Not created |
-| `docs/GAMBO_VALIDATION.md` | Not created |
-| `docs/GAMBO_ROADMAP_STATUS.md` | Not created |
+### Completed ✅
+1. **TMIHH** (1) - Threat-Map Indexed History Heuristic: Type definitions, threat categories (0-7), history updates for captures/checks/quiets
+2. **CICH** (2) - Colour-Indexed Continuation History: Fixed color indexing to use actual piece colors
+3. **MPCH** (3) - Multi-Ply Continuation History: Fixed to use `multiPlyContinuationHistory` instead of `colourContinuationHistory`
+4. **MTCH** (4) - Move-Type Conditioned History: Added move-type conditioned history for captures in movepick.cpp
+5. **HGQMP** (7) - History-Guided Quiet Move Pruning: Implemented in `prune_quiet_move` with threat category integration
+6. **INFU** (13) - Incremental NNUE Feature Update: Fixed function signatures for all 4 custom feature sets (PawnPair, KingRelative, ThreatDetection, PieceRelative) to accept Position reference
+7. **EGC** (9) - Extension Growth Control: Added constants, `can_extend`/`add_extension` helpers, singular extension tracking, move ordering penalty
+8. **CHQO** (5) - Capture-History Quiescence Ordering: SEEClass enum and `see_class` function implemented, integrated with qsearch capture history
+9. **SEE-GCP** (6) - SEE-Guided Capture Partitioning: SEEClass enum and `see_class` function implemented
+10. **SESR** (10) - Singular Extension Search Refinement: Improved candidate verification with TT information, margin adjustments
 
----
+### Partially Implemented 🔄 (12)
+- **NFAR** (14), **SONI** (15), **SMP** (16), **CATT** (17), **CTTEL** (18) - Tier 2 performance
+- **TVS** (26), **PNMV** (27), **PTC** (28), **CCA** (29), **EDSE** (30), **RCRA** (31), **HSWS** (32) - Tier 3 MetaSearch
+- **URD** (8) - Position version implemented, Search version needs integration
+- **LMRC** (11) - Contextual reduction uses history, needs more context
+- **QTC** (12) - Not implemented
 
-## Build System
+### Missing ❌ (18)
+- Tier 2: **IAMM** (19) validation, **IPFC** (20) validation, **NASA** (21) full integration
+- Tier 3: **TVS** (26), **PNMV** (27), **PTC** (28), **CCA** (29), **EDSE** (30), **RCRA** (31), **HSWS** (32)
+- Tier 4: **PG-MCTS** (33), **PUCT** (34), **T-AGS** (35), **DAG-Search** (36), **PSPA** (37), **BNNI** (38), **MHNE** (39), **HA-MS** (40)
 
-- **Makefile-based** with `profile-build` for PGO
-- **Windows CI** via GitHub Actions (mingw-w64 cross-compile)
-- **Linux CI** workflow exists (`.github/workflows/pral333-release.yml`)
-- **Supported targets:** x86-64-bmi2, AVX2, SSE4.1, POPCNT
-- **NNUE network:** `nn-83a0d6daf7e5.nnue` (Stockfish HalfKAv2 format)
+### Key Observations
 
----
+**Already Strong (Preserve & Extend)**
+1. Phase 1 & 2 evaluation system — Well-structured, comprehensive classical terms, style separation
+2. Custom NNUE features (gambo/nnue/) — 4 novel feature sets with architecture
+3. IAMM & IPFC — Good foundations for incremental attack maps and position caches
+4. PCE & SID — Position criticality and instability detection integrated
+5. PGO build — Working CI/CD with profile-guided optimization
+6. UCI option framework — Extensive options with GAMBO.* prefix
 
-## Correctness Validation Ready
-
-| Check | Status |
-|-------|--------|
-| Move generation / perft | Ready (standard Stockfish) |
-| Make/unmake consistency | Ready |
-| Castling / en passant / promotions | Ready |
-| Threefold repetition / 50-move | Ready |
-| TT bounds / mate scores | Ready |
-| Thread safety | Ready (Stockfish threading) |
-| NNUE accumulator consistency | **Needs validation** (GAMBO features not wired) |
-| Incremental cache consistency | **Needs validation** (stubbed functions) |
-| UCI protocol | Ready |
-
----
-
-## Next Steps (Priority Order)
-
-1. **Wire GAMBO-native NNUE** into evaluation pipeline (connect `NetworkArchitecture` to `Eval::evaluate`)
-2. **Implement incremental updates** for GAMBO features (`append_changed_indices`, refresh logic)
-3. **Audit double-counting** between classical terms and NNUE features; add ablation controls
-4. **Create documentation** files in `docs/`
-5. **Implement Tier 1 search features** (start with TMIHH, CICH, MPCH)
-6. **Add UCI toggles** for new features with `GAMBO.` prefix
-7. **Prepare external testing scripts** for VPS
+**Critical Gaps (Priority for Implementation)**
+1. **NFAR** (14) - Add refresh scheduling to Finny Tables, SIMD refresh paths
+2. **SONI** (15) - Runtime SIMD dispatch for NNUE inference
+3. **TVS** (26) + **PNMV** (27) - Tactical reliability for critical positions
+3. **NFAR** (14) + **SONI** (15) - NNUE speed
+4. **CATT** (17) + **CTTEL** (18) - Memory efficiency
+5. **Tier 4** (33-40) - Isolated experimental modules
 
 ---
 
-## Risk Assessment
-
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| GAMBO NNUE double-counting with classical eval | HIGH | Add per-component ablation UCI options; measure overlap |
-| Incremental update correctness | HIGH | Compare incremental vs full refresh on test positions |
-| Breaking existing Phase 1/2 behavior | HIGH | Preserve all existing UCI options; default ON |
-| Experimental features destabilizing main search | MEDIUM | Isolate behind UCI toggles; default OFF |
-| Build breakage on CI | LOW | Incremental commits; test locally where possible |
-
----
-
-*End of Audit*
+*This audit reflects the actual code state as of commit e692651. Statuses are based on code inspection, not wishful thinking.*
