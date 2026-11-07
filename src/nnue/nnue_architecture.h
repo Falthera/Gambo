@@ -29,6 +29,10 @@
 #include "features/full_threats.h"
 #include "features/king_safety.h"
 #include "features/piece_coordination.h"
+#include "features/gambo_pawn_pair.h"
+#include "features/gambo_king_relative.h"
+#include "features/gambo_threat_detection.h"
+#include "features/gambo_piece_relative.h"
 #include "layers/affine_transform.h"
 #include "layers/affine_transform_sparse_input.h"
 #include "layers/clipped_relu.h"
@@ -42,6 +46,11 @@ using ThreatFeatureSet    = Features::FullThreats;
 using PSQFeatureSet       = Features::HalfKAv2_hm;
 using KingSafetyFeatureSet = Features::KingSafety;
 using PieceCoordFeatureSet  = Features::PieceCoordination;
+// Gambo feature sets
+using GamboPawnPairFeatureSet = Gambo::NNUE::Features::PawnPairWrapper;
+using GamboKingRelativeFeatureSet = Gambo::NNUE::Features::KingRelativeWrapper;
+using GamboThreatDetectionFeatureSet = Gambo::NNUE::Features::ThreatDetectionWrapper;
+using GamboPieceRelativeFeatureSet = Gambo::NNUE::Features::PieceRelativeWrapper;
 
 // Number of input feature dimensions after conversion
 constexpr IndexType L1 = 1024;

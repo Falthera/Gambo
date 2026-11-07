@@ -130,6 +130,13 @@ class AccumulatorStack {
     template<typename T>
     [[nodiscard]] std::array<AccumulatorState<T>, MaxSize>& mut_accumulators() noexcept;
 
+    // Gambo accumulator accessors
+    template<typename T>
+    [[nodiscard]] const std::array<AccumulatorState<T>, MaxSize>& accumulators() const noexcept;
+
+    template<typename T>
+    [[nodiscard]] std::array<AccumulatorState<T>, MaxSize>& mut_accumulators() noexcept;
+
     template<typename FeatureSet>
     void evaluate_side(Color                     perspective,
                        const Position&           pos,
@@ -156,6 +163,11 @@ class AccumulatorStack {
     std::array<AccumulatorState<ThreatFeatureSet>, MaxSize>       threat_accumulators;
     std::array<AccumulatorState<KingSafetyFeatureSet>, MaxSize>   king_safety_accumulators;
     std::array<AccumulatorState<PieceCoordFeatureSet>, MaxSize>   piece_coord_accumulators;
+    // Gambo feature accumulators
+    std::array<AccumulatorState<GamboPawnPairFeatureSet>, MaxSize>       gambo_pawn_pair_accumulators;
+    std::array<AccumulatorState<GamboKingRelativeFeatureSet>, MaxSize>   gambo_king_relative_accumulators;
+    std::array<AccumulatorState<GamboThreatDetectionFeatureSet>, MaxSize> gambo_threat_detection_accumulators;
+    std::array<AccumulatorState<GamboPieceRelativeFeatureSet>, MaxSize>   gambo_piece_relative_accumulators;
     std::size_t                                                   size = 1;
 };
 
