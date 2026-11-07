@@ -30,8 +30,8 @@
 #include "features/king_relative.h"
 #include "features/threat_detection.h"
 #include "features/piece_relative.h"
-#include "../position.h"
-#include "../types.h"
+#include "../../position.h"
+#include "../../types.h"
 
 namespace Gambo::NNUE {
 
