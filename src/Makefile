@@ -1211,13 +1211,13 @@ config-sanity: net
 	 test "$(comp)" = "clang" || test "$(comp)" = "armv7a-linux-androideabi16-clang" || \
 	 test "$(comp)" = "aarch64-linux-android21-clang")
 
-$(EXE): $(OBJS) $(NNUE_EMBED_OBJ)
-	+$(CXX) -o $@ $(OBJS) $(NNUE_EMBED_OBJ) $(LDFLAGS)
+$(EXE): $(OBJS) $(NNUE_EMBED_OBJ) gambo_nnue_network.o
+	+$(CXX) -o $@ $(OBJS) $(NNUE_EMBED_OBJ) gambo_nnue_network.o $(LDFLAGS)
 
 %.o: %.cpp
 	$(strip $(CXX) $(CPPFLAGS) $(CXXFLAGS)) -c -o $@ $<
 
-network.o: gambo/nnue/network.cpp
+gambo_nnue_network.o: gambo/nnue/network.cpp
 	cd gambo/nnue && $(strip $(CXX) $(CPPFLAGS) $(CXXFLAGS) -std=c++26) -c -o ../../$@ ../../$<
 
 misc.o: misc.cpp $(BUILD_SHA_FILE) $(BUILD_DATE_FILE)
