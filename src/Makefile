@@ -534,7 +534,7 @@ ifeq ($(COMP),mingw)
 			CXX=i686-w64-mingw32-c++-posix
 		endif
 	endif
-	CXXFLAGS += -pedantic -Wextra -Wshadow -Wmissing-declarations -fconstexpr-ops-limit=500000000 -DNNUE_EMBEDDING_OFF
+	CXXFLAGS += -pedantic -Wextra -Wshadow -Wmissing-declarations -fconstexpr-ops-limit=500000000 -DNNUE_EMBEDDING_OFF -Wno-c++26-extensions --embed-dir=$(CURDIR)
 endif
 
 ifeq ($(COMP),icx)
