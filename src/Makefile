@@ -1217,7 +1217,7 @@ $(EXE): $(OBJS) $(NNUE_EMBED_OBJ)
 %.o: %.cpp
 	$(strip $(CXX) $(CPPFLAGS) $(CXXFLAGS)) -c -o $@ $<
 
-nnue/network.o: nnue/network.cpp
+network.o: gambo/nnue/network.cpp
 	$(strip $(CXX) $(CPPFLAGS) $(CXXFLAGS) -std=c++26) -c -o $@ $<
 
 misc.o: misc.cpp $(BUILD_SHA_FILE) $(BUILD_DATE_FILE)
