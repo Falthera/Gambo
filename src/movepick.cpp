@@ -229,6 +229,14 @@ if constexpr (Type == CAPTURES)
                 m.value = (*captureHistory)[pc][to][type_of(capturedPiece)]
                         + 7 * int(PieceValue[capturedPiece]);
 
+                // MTCH: Move-Type Conditioned History for captures
+                if (Search::use_move_type_history() && sharedHistory)
+                {
+                    Search::MoveTypeClass mt = Search::move_type_class(pos, m, false);
+                    int mtIdx = static_cast<int>(mt);
+                    m.value += (*sharedHistory->move_type_capture_entry(pos))[mtIdx][pc][to][type_of(capturedPiece)] / 4;
+                }
+
                 // SEE-GCP: Classify capture by SEE value
                 int seeValue = pos.see(m);
                 Search::SEEClass seeClass = Search::see_class(pos, m, seeValue);

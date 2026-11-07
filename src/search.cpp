@@ -2135,7 +2135,7 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
     // CICH — Colour-Indexed Continuation History
     if (use_colour_continuation_history())
     {
-        Color us = (ss - 1)->currentMove.is_ok() ? pos.side_to_move() : Color(0); // Simplified
+        Color us = pos.side_to_move();
         for (int i = 1; i <= 4; ++i)
         {
             if (((ss - i)->currentMove).is_ok())
@@ -2144,7 +2144,9 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
                 Square prevTo = ((ss - i)->currentMove).to_sq();
                 if (prevPc != NO_PIECE)
                 {
-                    auto& cichEntry = (*(ss - i)->colourContinuationHistory)[us][~us][prevPc][prevTo][pc][to];
+                    Color prevColor = color_of(prevPc);
+                    Color currColor = color_of(pc);
+                    auto& cichEntry = (*(ss - i)->colourContinuationHistory)[prevColor][currColor][prevPc][prevTo][pc][to];
                     cichEntry << (bonus * 512 / 1024);
                 }
             }
@@ -2164,7 +2166,7 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
                 Square prev1To = ((ss - i - 1)->currentMove).to_sq();
                 if (prev2Pc != NO_PIECE && prev1Pc != NO_PIECE)
                 {
-                    auto& mpchEntry = (*(ss - i)->colourContinuationHistory)[prev2Pc][prev2To][prev1Pc][prev1To][pc][to];
+                    auto& mpchEntry = (*(ss - i)->multiPlyContinuationHistory)[prev2Pc][prev2To][prev1Pc][prev1To][pc][to];
                     mpchEntry << (bonus * 256 / 1024);
                 }
             }
