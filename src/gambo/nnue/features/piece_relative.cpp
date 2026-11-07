@@ -167,7 +167,7 @@ void PieceRelative::append_active_indices(Color perspective, const Position& pos
 }
 
 void PieceRelative::append_changed_indices(Color perspective, Square ksq,
-                                           const DiffType& diff, IndexList& removed, IndexList& added) {
+                                            const Position& pos, const DiffType& diff, IndexList& removed, IndexList& added) {
     // INFU: Incremental piece coordination feature updates
     // Track outposts, pawn chains, rook batteries, rook open files
     

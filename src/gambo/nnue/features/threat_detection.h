@@ -71,7 +71,7 @@ public:
 
     // Populate changed feature indices after a move
     static void append_changed_indices(Color perspective, Square ksq,
-                                       const DiffType& diff, IndexList& removed, IndexList& added,
+                                       const Position& pos, const DiffType& diff, IndexList& removed, IndexList& added,
                                        FusedUpdateData* fd = nullptr, bool first = false);
 
     // Check if a full accumulator refresh is required

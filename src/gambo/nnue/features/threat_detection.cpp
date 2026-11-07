@@ -133,8 +133,8 @@ void ThreatDetection::append_active_indices(Color perspective, const Position& p
 }
 
 void ThreatDetection::append_changed_indices(Color perspective, Square ksq,
-                                             const DiffType& diff, IndexList& removed, IndexList& added,
-                                             FusedUpdateData* fd, bool first) {
+                                              const Position& pos, const DiffType& diff, IndexList& removed, IndexList& added,
+                                              FusedUpdateData* fd, bool first) {
     // INFU: Incremental threat detection feature updates
     // Threat features change when pieces move or are captured
     // Track attacker-target-king triplets that are affected
