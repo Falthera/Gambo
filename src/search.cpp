@@ -48,6 +48,11 @@
 #include "tt.h"
 #include "types.h"
 #include "uci.h"
+#include "gambo/tvs.h"
+#include "gambo/edse.h"
+#include "gambo/iamm.h"
+#include "gambo/ipfc.h"
+#include "gambo/nasa.h"
 #include "ucioption.h"
 #include "gambo/pce.h"
 #include "gambo/sid.h"
@@ -203,7 +208,10 @@ Search::Worker::Worker(SharedState&                    sharedState,
     threads(sharedState.threads),
     tt(sharedState.tt),
     network(sharedState.network),
-    refreshTable(network[token]) {
+    refreshTable(network[token]),
+    iamm(Gambo::IAMM::AttackMapManager()),
+    ipfc(Gambo::IPFC::PositionFeatureCacheManager()),
+    nasa(Gambo::NASA::NUMAManager()) {
     clear();
 }
 
@@ -217,6 +225,11 @@ void Search::Worker::start_searching() {
 
     accumulatorStack.reset();
     lastIterationPV.clear();
+
+    // Initialize Gambo features with root position
+    iamm.init(rootPos);
+    ipfc.init(rootPos);
+    nasa.init();
 
     // Non-main threads go directly to iterative_deepening()
     if (!is_mainthread())
@@ -449,6 +462,40 @@ bool Search::Worker::iterative_deepening() {
                 // search the already searched PV lines are preserved.
                 std::stable_sort(rootMoves.begin() + pvIdx, rootMoves.begin() + pvLast);
 
+                // TVS: Tactical Verification of best move
+                if (!threads.stop && TVS::tvsConfig.enabled && rootMoves.size() > 1) {
+                    TVS::TVSContext tvsCtx;
+                    tvsCtx.pos = &rootPos;
+                    tvsCtx.ss = ss;
+                    tvsCtx.depth = adjustedDepth;
+                    tvsCtx.alpha = alpha;
+                    tvsCtx.beta = beta;
+                    
+                    // Verify top 3 candidates
+                    Move candidates[3];
+                    int numCandidates = std::min(3, (int)rootMoves.size());
+                    for (int i = 0; i < numCandidates; ++i) {
+                        candidates[i] = rootMoves[i].pv[0];
+                    }
+                    
+                    TVS::VerificationStatus results[3];
+                    TVS::verify_candidates(rootPos, ss, adjustedDepth, alpha, beta, candidates, numCandidates, results);
+                    
+                    // Log verification results
+                    for (int i = 0; i < numCandidates; ++i) {
+                        // In a real implementation, we'd log this
+                        // sync_cout << "TVS: Move " << candidates[i] << " " << TVS::status_to_string(results[i]) << sync_endl;
+                    }
+                    
+                    // If best move is REFUTED, consider using second best
+                    if (results[0] == TVS::VerificationStatus::REFUTED && numCandidates > 1) {
+                        if (results[1] == TVS::VerificationStatus::VERIFIED) {
+                            // Swap best move with verified alternative
+                            std::swap(rootMoves[0], rootMoves[1]);
+                        }
+                    }
+                }
+
                 // If search has been stopped, we break immediately. Sorting is
                 // safe because RootMoves is still valid, although it refers to
                 // the previous iteration.
@@ -648,6 +695,12 @@ void Search::Worker::do_move(
     auto [dirtyPiece, dirtyThreats] = accumulatorStack.push();
     pos.do_move(move, st, givesCheck, dirtyPiece, dirtyThreats, &tt, &sharedHistory);
 
+    // Update IAMM incrementally
+    iamm.make_move(pos, move, givesCheck, st);
+    
+    // Update IPFC incrementally
+    ipfc.make_move(pos, move, givesCheck, st);
+
     if (ss != nullptr)
     {
         ss->currentMove = move;
@@ -666,11 +719,20 @@ void Search::Worker::do_null_move(Position& pos, StateInfo& st, Stack* const ss)
 }
 
 void Search::Worker::undo_move(Position& pos, const Move move) {
+    // Undo IAMM and IPFC
+    iamm.undo_move(pos, move);
+    ipfc.undo_move(pos, move);
+    
     pos.undo_move(move);
     accumulatorStack.pop();
 }
 
-void Search::Worker::undo_null_move(Position& pos) { pos.undo_null_move(); }
+void Search::Worker::undo_null_move(Position& pos) { 
+    pos.undo_null_move();
+    // IAMM and IPFC handle null moves internally
+    iamm.undo_null_move(pos);
+    ipfc.undo_null_move(pos);
+}
 
 
 // Reset histories, usually before a new game
@@ -1153,8 +1215,17 @@ moves_loop:  // When in check, search starts here
             history += sharedHistory.move_type_entry(pos)[mtIdx][movedPiece][move.to_sq()] / 4;
         }
         
-        int r = contextual_reduction(pos, ss, improving, depth, moveCount, delta, history, threatCat, ss->ttPv);
+int r = contextual_reduction(pos, ss, improving, depth, moveCount, delta, history, threatCat, ss->ttPv);
 
+        // EDSE: Event-Driven Search Extensions
+        // Calculate extension based on tactical events
+        if (EDSE::edseEngine.get_move_extension(pos, ss, move, 0) > 0) {
+            int edseExtension = EDSE::edseEngine.get_move_extension(pos, ss, move, 0);
+            if (EDSE::edseEngine.can_extend(ss, extension + edseExtension)) {
+                extension += edseExtension;
+            }
+        }
+        
         // Increase reduction for ttPv nodes (*Scaler)
         // Larger values scale well
         if (ss->ttPv)

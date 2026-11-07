@@ -38,6 +38,7 @@
 #include "syzygy/tbprobe.h"
 #include "tt.h"
 #include "uci.h"
+#include "gambo/tvs.h"
 
 using std::string;
 
@@ -158,6 +159,9 @@ void Position::init() {
                     count++;
                 }
     assert(count == 3668);
+    
+    // Initialize TVS (Tactical Verification Search)
+    TVS::init_tvs();
 }
 
 

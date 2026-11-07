@@ -42,6 +42,9 @@
 #include "syzygy/tbprobe.h"
 #include "timeman.h"
 #include "types.h"
+#include "gambo/iamm.h"
+#include "gambo/ipfc.h"
+#include "gambo/nasa.h"
 
 namespace Stockfish {
 
@@ -766,6 +769,11 @@ class Worker {
     // Used by NNUE
     Eval::NNUE::AccumulatorStack  accumulatorStack;
     Eval::NNUE::AccumulatorCaches refreshTable;
+
+    // Gambo features
+    Gambo::IAMM::AttackMapManager iamm;
+    Gambo::IPFC::PositionFeatureCacheManager ipfc;
+    Gambo::NASA::NUMAManager nasa;
 
     friend class Stockfish::ThreadPool;
     friend class SearchManager;

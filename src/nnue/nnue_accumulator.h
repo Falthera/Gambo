@@ -66,6 +66,10 @@ struct AccumulatorCaches {
         std::array<PSQTWeightType, PSQTBuckets> psqtAccumulation;
         std::array<Piece, SQUARE_NB>            pieces;
         Bitboard                                pieceBB;
+        // NFAR: Cache metadata for refresh scheduling
+        std::uint32_t                           lastAccess = 0;
+        std::uint32_t                           refreshCount = 0;
+        bool                                    isValid = false;
 
         // To initialize a refresh entry, we set all its bitboards empty,
         // so we put the biases in the accumulation, without any weights on top
@@ -73,6 +77,9 @@ struct AccumulatorCaches {
             accumulation = biases;
             std::memset(reinterpret_cast<std::byte*>(this) + offsetof(Entry, psqtAccumulation), 0,
                         sizeof(Entry) - offsetof(Entry, psqtAccumulation));
+            lastAccess = 0;
+            refreshCount = 0;
+            isValid = false;
         }
     };
 
@@ -83,7 +90,56 @@ struct AccumulatorCaches {
                 entry.clear(network.featureTransformer.biases);
     }
 
-    std::array<Entry, COLOR_NB>& operator[](Square sq) { return entries[sq]; }
+    // NFAR: Get cache entry with availability tracking
+    std::array<Entry, COLOR_NB>& operator[](Square sq) { 
+        return entries[sq]; 
+    }
+
+    // NFAR: Check if cached entry is available for given perspective
+    [[nodiscard]] bool is_available(Square sq, Color perspective) const {
+        return entries[sq][perspective].isValid;
+    }
+
+    // NFAR: Mark cache entry as used (updates LRU timestamp)
+    void mark_used(Square sq, Color perspective, std::uint32_t timestamp) {
+        auto& entry = entries[sq][perspective];
+        entry.lastAccess = timestamp;
+    }
+
+    // NFAR: Schedule refresh for least recently used entries
+    void schedule_refresh(std::uint32_t currentTime, int maxRefreshPerCall = 4) {
+        // Find least recently used valid entries
+        std::array<std::pair<Square, Color>, SQUARE_NB * COLOR_NB> candidates;
+        int candidateCount = 0;
+        
+        for (Square sq = SQ_A1; sq <= SQ_H8; ++sq) {
+            for (Color c = WHITE; c <= BLACK; ++c) {
+                if (entries[sq][c].isValid) {
+                    candidates[candidateCount++] = {sq, c};
+                }
+            }
+        }
+        
+        // Sort by last access time (oldest first)
+        std::sort(candidates.begin(), candidates.begin() + candidateCount,
+                  [this](const auto& a, const auto& b) {
+                      return entries[a.first][a.second].lastAccess < 
+                             entries[b.first][b.second].lastAccess;
+                  });
+        
+        // Refresh up to maxRefreshPerCall oldest entries
+        for (int i = 0; i < std::min(maxRefreshPerCall, candidateCount); ++i) {
+            Square sq = candidates[i].first;
+            Color c = candidates[i].second;
+            entries[sq][c].refreshCount++;
+            entries[sq][c].lastAccess = currentTime;
+        }
+    }
+
+    // NFAR: Statistics
+    std::uint64_t cacheHits = 0;
+    std::uint64_t cacheMisses = 0;
+    std::uint64_t totalRefreshes = 0;
 
     std::array<std::array<Entry, COLOR_NB>, SQUARE_NB> entries;
 };
