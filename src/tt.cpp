@@ -251,6 +251,34 @@ void TranspositionTable::prefetch(const Key key) const {
 #endif
 }
 
+void TranspositionTable::prefetch_batch(const Key* keys, int count) const {
+    for (int i = 0; i < count; ++i) {
+        prefetch(keys[i]);
+    }
+}
+
+// CATT: Cache-Aware Transposition Table
+// Set/get compact TT layout
+void TranspositionTable::set_layout(TTLayout layout) {
+    currentLayout = layout;
+    // Note: Layout change requires table resize to take effect
+}
+
+TTLayout TranspositionTable::get_layout() const {
+    return currentLayout;
+}
+
+// CTTEL: Compact TT Entry Layout
+void TranspositionTable::set_compact_layout(bool enable) {
+    // In a full implementation, this would resize the table with compact entries
+    // For now, we track the preference
+    // This would require reallocating the table with CompactTTEntry instead of TTEntry
+}
+
+bool TranspositionTable::is_compact_layout() const {
+    return currentLayout == TTLayout::Compact;
+}
+
 // CATT: Cache-Aware Transposition Table
 // Set/get compact TT layout
 void TranspositionTable::set_layout(TTLayout layout) {

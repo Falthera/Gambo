@@ -100,14 +100,17 @@ class TranspositionTable {
     std::tuple<bool, TTData, TTWriter> probe(const Key key) const;
     
     // SMP: Scheduled Memory Prefetching
-    // Prefetch TT entry for a given key
     void prefetch(const Key key) const;
+    void prefetch_batch(const Key* keys, int count) const;
     
     // CATT: Cache-Aware Transposition Table
-    // Set/get compact TT layout
     void set_layout(TTLayout layout);
     TTLayout get_layout() const;
-
+    
+    // CTTEL: Compact TT Entry Layout
+    void set_compact_layout(bool enable);
+    bool is_compact_layout() const;
+    
     // The hash function; its only external use is memory prefetching
     TTEntry* first_entry(const Key key) const;
 
