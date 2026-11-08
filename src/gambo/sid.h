@@ -70,6 +70,44 @@ public:
         return totalInstability > 50;
     }
 
+    // SID: Time management integration
+    // Returns time multiplier based on instability (1.0 = normal, >1.0 = more time)
+    double get_time_multiplier() const {
+        switch (get_instability_level()) {
+            case InstabilityLevel::STABLE:    return 0.8;  // Use less time when stable
+            case InstabilityLevel::MINOR:     return 1.0;
+            case InstabilityLevel::MODERATE:  return 1.5;
+            case InstabilityLevel::HIGH:      return 2.5;
+            case InstabilityLevel::CRITICAL:  return 4.0;  // Allocate much more time
+        }
+        return 1.0;
+    }
+
+    InstabilityLevel get_instability_level() const {
+        if (totalInstability < 20) return InstabilityLevel::STABLE;
+        if (totalInstability < 40) return InstabilityLevel::MINOR;
+        if (totalInstability < 80) return InstabilityLevel::MODERATE;
+        if (totalInstability < 140) return InstabilityLevel::HIGH;
+        return InstabilityLevel::CRITICAL;
+    }
+
+    // Get recommended depth extension based on instability
+    Depth get_depth_extension() const {
+        switch (get_instability_level()) {
+            case InstabilityLevel::STABLE:    return 0;
+            case InstabilityLevel::MINOR:     return 1;
+            case InstabilityLevel::MODERATE:  return 2;
+            case InstabilityLevel::HIGH:      return 3;
+            case InstabilityLevel::CRITICAL:  return 5;
+        }
+        return 0;
+    }
+
+    // Check if we should trigger emergency verification
+    bool needs_emergency_verification() const {
+        return totalInstability > 180;
+    }
+
 private:
     int pvChanges = 0;
     int evalSwings = 0;

@@ -239,7 +239,7 @@ void Search::Worker::start_searching() {
     }
 
     main_manager()->tm.init(limits, rootPos.side_to_move(), rootPos.game_ply(), options,
-                            main_manager()->originalTimeAdjust);
+                            main_manager()->originalTimeAdjust, &sid);
     tt.new_search();
 
     if (rootMoves.empty())
@@ -1830,13 +1830,17 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
     pvHit        = ttHit && ttData.is_pv;
 
-    // QTC: QSearch Transposition Correction
-    // Track the difference between static eval and TT eval for future corrections
-    int qsearchCorrection = 0;
-    if (ttHit && is_valid(ttData.eval) && is_valid(ttData.value))
-    {
-        qsearchCorrection = ttData.eval - ttData.value;
-    }
+// QTC: QSearch Transposition Correction
+// Track the difference between static eval and TT eval for future corrections
+// Also track depth/context corrections
+int qsearchCorrection = 0;
+int qsearchDepthCorrection = 0;
+if (ttHit && is_valid(ttData.eval) && is_valid(ttData.value))
+{
+    qsearchCorrection = ttData.eval - ttData.value;
+    // Depth correction: deeper searches are more reliable
+    qsearchDepthCorrection = (DEPTH_QS - ttData.depth) * 8; // 8cp per depth level
+}
 
     // At non-PV nodes we check for an early TT cutoff
     if (!PvNode && ttData.depth >= DEPTH_QS
@@ -1847,6 +1851,14 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         Value correctedValue = ttData.value;
         if (std::abs(qsearchCorrection) < 200) // Only correct if correction is small/reliable
             correctedValue = ttData.value + qsearchCorrection / 4;
+        
+        // Apply depth correction for more accurate scoring
+        correctedValue += qsearchDepthCorrection / 4;
+        
+        // Store correction info in stack for potential use by caller
+        ss->qsearchCorrection = qsearchCorrection;
+        ss->qsearchDepthCorrection = qsearchDepthCorrection;
+        
         return correctedValue;
     }
 
@@ -1886,6 +1898,10 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         {
             if (!is_decisive(bestValue))
                 bestValue = (467 * bestValue + 557 * beta) / 1024;
+
+            // QTC: Apply correction to stand pat score
+            if (ss->qsearchCorrection != 0)
+                bestValue += ss->qsearchCorrection / 8;
 
             if (!ss->ttHit)
                 ttWriter.write(posKey, VALUE_NONE, false, BOUND_LOWER, DEPTH_UNSEARCHED,
@@ -2056,6 +2072,37 @@ int Search::Worker::contextual_reduction(const Position& pos, const Stack* ss, b
     // Reduce more for very late moves with bad history
     if (moveCount > 15 && history < -5000) {
         r += depth * 4;
+    }
+    
+    // LMRC: Enhanced context calibration
+    
+    // Tactical context: reduce less in positions with high tactical pressure
+    int tacticalPressure = pos.attackers_to(pos.square<KING>(pos.side_to_move())).count();
+    if (tacticalPressure >= 2) {
+        r -= depth / 3;
+    }
+    
+    // TT info: reduce less if we have a good TT hit
+    if (ss && ss->ttHit) {
+        int ttDepthBonus = std::min(depth / 4, 64);
+        r -= ttDepthBonus;
+    }
+    
+    // Position criticality (PCE): reduce less in critical positions
+    if (Gambo::PCE::PositionCriticalityEngine::is_critical(pos)) {
+        int criticalityReduction = std::min(depth / 3, 48);
+        r -= criticalityReduction;
+    }
+    
+    // Search instability (SID): reduce less in unstable positions
+    if (Gambo::SID::SearchInstabilityDetector::is_unstable(*ss)) {
+        int instabilityReduction = std::min(depth / 4, 32);
+        r -= instabilityReduction;
+    }
+    
+    // Time pressure: reduce more when time is low
+    if (manager && manager->tm.is_time_pressure()) {
+        r += depth / 2;
     }
     
     // Ensure minimum reduction

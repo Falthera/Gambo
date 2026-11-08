@@ -32,8 +32,11 @@ namespace Search {
 struct LimitsType;
 }
 
-// The TimeManagement class computes the optimal time to think depending on
-// the maximum available time, the game move number, and other parameters.
+// SID: Search Instability Detection forward declaration
+namespace Gambo::SID {
+class SearchInstabilityDetector;
+}
+
 class TimeManagement {
    public:
     void init(Search::LimitsType& limits,
@@ -49,6 +52,16 @@ class TimeManagement {
         return useNodesTime ? TimePoint(nodes()) : elapsed_time();
     }
     TimePoint elapsed_time() const { return now() - startTime; };
+
+    // SID: Get adjusted optimum time with instability multiplier
+    TimePoint optimum_with_sid(const Gambo::SID::SearchInstabilityDetector& sid) const {
+        return TimePoint(double(optimumTime) * sid.get_time_multiplier());
+    }
+
+    // SID: Get adjusted maximum time with instability multiplier
+    TimePoint maximum_with_sid(const Gambo::SID::SearchInstabilityDetector& sid) const {
+        return TimePoint(double(maximumTime) * sid.get_time_multiplier());
+    }
 
     void clear();
     void advance_nodes_time(std::int64_t nodes);

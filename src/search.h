@@ -93,6 +93,10 @@ struct Stack {
     // EGC: Extension Growth Control
     int                         extensionAccumulator;
     int                         singularExtensionCount;
+
+    // QTC: QSearch Transposition Correction
+    int                         qsearchCorrection;
+    int                         qsearchDepthCorrection;
 };
 
 enum class StyleMode : int { Balanced = 0, UltraAggressive = 1 };
@@ -376,22 +380,11 @@ inline bool upcoming_repetition(const Position& pos, Move m, int depth, const St
     if (depth < 4)
         return false;
     
-    // Check if the move would repeat a position in the near future
-    // This is a simplified check - a full implementation would track the move
-    // and resulting position to see if it leads to a 3-fold repetition
-    if (pos.is_draw())
-        return true;
-    
-    // Check if the move is a "waiting" move that could lead to repetition
-    if (!pos.capture_stage(m) && !pos.gives_check(m, pos.checkers())) {
-        // Simple heuristic: if we're shuffling and the position is balanced
-        // (no clear advantage), we might be heading towards repetition
-        if (pos.non_pawn_material() < 4000 && std::abs(pos.psqt_eval()) < 50)
-            return true;
-    }
-    
-    return false;
+    // Use the position's built-in upcoming_repetition which accurately
+    // checks for 3-fold repetition by simulating the move
+    return pos.upcoming_repetition(pos.st->ply);
 }
+
 // Returns a score representing the attacking compensation for material sacrificed.
 // Positive values indicate compensation (initiative, king safety, piece activity).
 // This is used to distinguish sound sacrifices from unsound ones.

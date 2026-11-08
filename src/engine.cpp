@@ -164,6 +164,7 @@ Engine::Engine(std::optional<std::string> path) :
     options.add("GAMBO.CompactTT", Option(false));
     options.add("GAMBO.NUMAAlloc", Option(true));
     options.add("GAMBO.PGOProfile", Option(""));
+    options.add("GAMBO.SIDTimeManagement", Option(true));
 
     options.add(  //
       "SyzygyPath", Option("", [](const Option& o) {

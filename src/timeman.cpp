@@ -25,6 +25,7 @@
 
 #include "search.h"
 #include "ucioption.h"
+#include "gambo/sid.h"
 
 namespace Stockfish {
 
@@ -44,11 +45,13 @@ void TimeManagement::advance_nodes_time(std::int64_t nodes) {
 // the bounds of time allowed for the current game ply. We currently support:
 //      1) x basetime (+ z increment)
 //      2) x moves in y seconds (+ z increment)
+// SID: Extended with Search Instability Detection for dynamic time allocation
 void TimeManagement::init(Search::LimitsType& limits,
                           Color               us,
                           int                 ply,
                           const OptionsMap&   options,
-                          double&             originalTimeAdjust) {
+                          double&             originalTimeAdjust,
+                          const Gambo::SID::SearchInstabilityDetector* sid) {
     TimePoint npmsec = TimePoint(options["nodestime"]);
 
     // If we have no time, we don't need to fully initialize TM.
@@ -130,6 +133,13 @@ void TimeManagement::init(Search::LimitsType& limits,
     maximumTime =
       TimePoint(std::max(double(optimumTime), std::min(0.8097 * limits.time[us] - moveOverhead,
                                                        maxScale * optimumTime)));
+
+    // SID: Apply instability-based time multipliers
+    if (sid && options["GAMBO.SIDTimeManagement"]) {
+        double sidMultiplier = sid->get_time_multiplier();
+        optimumTime = TimePoint(double(optimumTime) * sidMultiplier);
+        maximumTime = TimePoint(double(maximumTime) * sidMultiplier);
+    }
 
     if (options["Ponder"])
         optimumTime += optimumTime / 4;
