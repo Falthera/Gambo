@@ -26,7 +26,7 @@
 #include "../../misc.h"
 #include "../../types.h"
 #include "../nnue_common.h"
-#include "../../../gambo/nnue/features/threat_detection.h"
+#include "../../gambo/nnue/features/threat_detection.h"
 
 namespace Stockfish {
 class Position;
