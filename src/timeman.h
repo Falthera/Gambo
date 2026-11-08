@@ -22,6 +22,7 @@
 #include <cstdint>
 
 #include "misc.h"
+#include "gambo/sid.h"
 
 namespace Stockfish {
 
@@ -30,11 +31,6 @@ enum Color : uint8_t;
 
 namespace Search {
 struct LimitsType;
-}
-
-// SID: Search Instability Detection forward declaration
-namespace Gambo::SID {
-class SearchInstabilityDetector;
 }
 
 class TimeManagement {

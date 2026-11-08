@@ -259,21 +259,21 @@ struct SharedHistories {
     SharedHistories(size_t threadCount) :
         correctionHistory(threadCount),
         pawnHistory(threadCount),
-        threatMapHistory(threadCount),
-        colourContinuationHistory(threadCount),
-        multiPlyContinuationHistory(threadCount),
-        moveTypeHistory(threadCount),
-        moveTypeCaptureHistory(threadCount),
-        qSearchCaptureHistory(threadCount) {
+        threatMapHistory(),
+        colourContinuationHistory(),
+        multiPlyContinuationHistory(),
+        moveTypeHistory(),
+        moveTypeCaptureHistory(),
+        qSearchCaptureHistory() {
         assert((threadCount & (threadCount - 1)) == 0 && threadCount != 0);
         sizeMinus1                    = correctionHistory.get_size() - 1;
         pawnHistSizeMinus1            = pawnHistory.get_size() - 1;
-        threatMapHistSizeMinus1       = threatMapHistory.get_size() - 1;
-        colourContinuationHistSizeMinus1 = colourContinuationHistory.get_size() - 1;
-        multiPlyContinuationHistSizeMinus1 = multiPlyContinuationHistory.get_size() - 1;
-        moveTypeHistSizeMinus1        = moveTypeHistory.get_size() - 1;
-        moveTypeCaptureHistSizeMinus1 = moveTypeCaptureHistory.get_size() - 1;
-        qSearchCaptureHistSizeMinus1  = qSearchCaptureHistory.get_size() - 1;
+        threatMapHistSizeMinus1       = threatMapHistory.size() - 1;
+        colourContinuationHistSizeMinus1 = colourContinuationHistory.size() - 1;
+        multiPlyContinuationHistSizeMinus1 = multiPlyContinuationHistory.size() - 1;
+        moveTypeHistSizeMinus1        = moveTypeHistory.size() - 1;
+        moveTypeCaptureHistSizeMinus1 = moveTypeCaptureHistory.size() - 1;
+        qSearchCaptureHistSizeMinus1  = qSearchCaptureHistory.size() - 1;
     }
 
     size_t get_size() const { return sizeMinus1 + 1; }

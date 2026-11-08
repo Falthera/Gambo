@@ -236,11 +236,11 @@ inline int threat_category(const Position& pos, Color us, Move m, const Stack* s
     const Square ourKing   = pos.square<KING>(us);
     const Square from = m.from_sq();
     const Square to   = m.to_sq();
-    const Piece pc = m.moved_piece();
+    const Piece pc = pos.moved_piece(m);
     const PieceType pt = type_of(pc);
 
     // Category 2: Checking move (highest priority for tactical relevance)
-    if (pos.gives_check(m, pos.checkers()))
+    if (pos.gives_check(m))
         return 2;
 
     // Category 1: King ring attack
@@ -316,7 +316,7 @@ inline MoveTypeClass move_type_class(const Position& pos, Move m, bool inCheck) 
         return MoveTypeClass::MT_PROMOTION;
     if (pos.capture_stage(m))
         return MoveTypeClass::MT_CAPTURE;
-    if (pos.gives_check(m, pos.checkers()))
+    if (pos.gives_check(m))
         return MoveTypeClass::MT_CHECK;
     if (inCheck)
         return MoveTypeClass::MT_EVASION;
@@ -382,7 +382,8 @@ inline bool upcoming_repetition(const Position& pos, Move m, int depth, const St
     
     // Use the position's built-in upcoming_repetition which accurately
     // checks for 3-fold repetition by simulating the move
-    return pos.upcoming_repetition(pos.st->ply);
+    int ply = ss ? ss->ply : 0;
+    return pos.upcoming_repetition(ply);
 }
 
 // Returns a score representing the attacking compensation for material sacrificed.
@@ -764,9 +765,9 @@ class Worker {
     Eval::NNUE::AccumulatorCaches refreshTable;
 
     // Gambo features
-    Gambo::IAMM::AttackMapManager iamm;
-    Gambo::IPFC::PositionFeatureCacheManager ipfc;
-    Gambo::NASA::NUMAManager nasa;
+    ::Gambo::IAMM::AttackMapManager iamm;
+    ::Gambo::IPFC::PositionFeatureCacheManager ipfc;
+    ::Gambo::NASA::NUMAManager nasa;
 
     friend class Stockfish::ThreadPool;
     friend class SearchManager;

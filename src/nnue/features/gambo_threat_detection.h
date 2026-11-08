@@ -26,6 +26,7 @@
 #include "../../misc.h"
 #include "../../types.h"
 #include "../nnue_common.h"
+#include "../../../gambo/nnue/features/threat_detection.h"
 
 namespace Stockfish {
 class Position;
@@ -34,12 +35,6 @@ class Position;
 namespace Gambo::NNUE::Features {
 
 using namespace Stockfish;
-
-struct FusedUpdateData {
-    Bitboard dp2removedOriginBoard = 0;
-    Bitboard dp2removedTargetBoard = 0;
-    Square dp2removed = SQ_NONE;
-};
 
 class ThreatDetectionWrapper {
 public:

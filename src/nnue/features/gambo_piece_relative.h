@@ -26,6 +26,7 @@
 #include "../../misc.h"
 #include "../../types.h"
 #include "../nnue_common.h"
+#include "../../../gambo/nnue/features/piece_relative.h"
 
 namespace Stockfish {
 class Position;

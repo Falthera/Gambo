@@ -113,9 +113,10 @@ struct AccumulatorCaches {
         int candidateCount = 0;
         
         for (Square sq = SQ_A1; sq <= SQ_H8; ++sq) {
-            for (Color c = WHITE; c <= BLACK; ++c) {
-                if (entries[sq][c].isValid) {
-                    candidates[candidateCount++] = {sq, c};
+            for (int c = 0; c < COLOR_NB; ++c) {
+                Color color = Color(c);
+                if (entries[sq][color].isValid) {
+                    candidates[candidateCount++] = {sq, color};
                 }
             }
         }
@@ -180,13 +181,6 @@ class AccumulatorStack {
     template<typename T>
     [[nodiscard]] AccumulatorState<T>& mut_latest() noexcept;
 
-    template<typename T>
-    [[nodiscard]] const std::array<AccumulatorState<T>, MaxSize>& accumulators() const noexcept;
-
-    template<typename T>
-    [[nodiscard]] std::array<AccumulatorState<T>, MaxSize>& mut_accumulators() noexcept;
-
-    // Gambo accumulator accessors
     template<typename T>
     [[nodiscard]] const std::array<AccumulatorState<T>, MaxSize>& accumulators() const noexcept;
 
